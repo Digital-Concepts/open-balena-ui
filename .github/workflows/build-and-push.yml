@@ -23,7 +23,7 @@ jobs:
         run: docker build -t openbalena-admin_ui_1 .
 
       - name: Tag Docker Image
-        run: docker tag openbalena-admin_postgrest_1 dcnext/open-balena-ui:latest
+        run: docker tag openbalena-admin_ui_1 dcnext/open-balena-ui:latest
 
       - name: Push Docker Image
         run: docker push dcnext/open-balena-ui:latest
