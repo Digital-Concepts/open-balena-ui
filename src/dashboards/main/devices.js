@@ -41,7 +41,7 @@ export const DeviceCards = () => (
               <Grid container spacing={3} sx={{ flex: '1' }}>
                 {data?.map((record, index) => (
                   <Grid item key={index} xs='auto'>
-                    <Card sx={{ minWidth: 200, maxWidth: 200, minHeight: 220, maxHeight: 220 }}>
+                    <Card sx={{ minWidth: 300, maxWidth: 200, minHeight: 220, maxHeight: 220 }}>
                       <CardHeader
                         title={
                           <Tooltip title={record['device name']}>
