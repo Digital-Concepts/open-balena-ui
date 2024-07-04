@@ -65,6 +65,8 @@ const Controls = () => {
 
   if (!record) return null;
 
+  const isOffline = record['api heartbeat state'] !== 'online';
+
   return (
     <>
       <Typography variant='h5' component='h2' gutterBottom>
@@ -86,45 +88,35 @@ const Controls = () => {
       </Box>
 
       <CardActions sx={styles.actionCard}>
-        <FunctionField
-          render={(record) => {
-            const isOffline = record['api heartbeat state'] !== 'online';
+        <EditButton label='Edit' size='medium' variant='outlined' color='secondary' />
 
-            return (
-              <>
-                <EditButton label='Edit' size='medium' variant='outlined' color='secondary' />
-
-                <Button
-                  variant='outlined'
-                  size='medium'
-                  onClick={() => invokeSupervisor(record, 'blink')}
-                  startIcon={<LightModeIcon />}
-                  disabled={isOffline}
-                >
-                  Blink
-                </Button>
-                <Button
-                  variant='outlined'
-                  size='medium'
-                  onClick={() => invokeSupervisor(record, 'reboot')}
-                  startIcon={<RestartAltIcon />}
-                  disabled={isOffline}
-                >
-                  Reboot
-                </Button>
-                <Button
-                  variant='outlined'
-                  size='medium'
-                  onClick={() => {}}
-                  startIcon={<PowerSettingsNewIcon />}
-                  disabled={true}
-                >
-                  Shutdown
-                </Button>
-              </>
-            );
-          }}
-        />
+        <Button
+          variant='outlined'
+          size='medium'
+          onClick={() => invokeSupervisor(record, 'blink')}
+          startIcon={<LightModeIcon />}
+          disabled={isOffline}
+        >
+          Blink
+        </Button>
+        <Button
+          variant='outlined'
+          size='medium'
+          onClick={() => invokeSupervisor(record, 'reboot')}
+          startIcon={<RestartAltIcon />}
+          disabled={isOffline}
+        >
+          Reboot
+        </Button>
+        <Button
+          variant='outlined'
+          size='medium'
+          onClick={() => {}}
+          startIcon={<PowerSettingsNewIcon />}
+          disabled={true}
+        >
+          Shutdown
+        </Button>
       </CardActions>
     </>
   );
