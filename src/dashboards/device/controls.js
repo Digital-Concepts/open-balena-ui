@@ -115,9 +115,9 @@ const Controls = () => {
                 <Button
                   variant='outlined'
                   size='medium'
-                  onClick={() => invokeSupervisor(record, 'shutdown')}
+                  onClick={() => {}}
                   startIcon={<PowerSettingsNewIcon />}
-                  disabled={isOffline}
+                  disabled={true}
                 >
                   Shutdown
                 </Button>
