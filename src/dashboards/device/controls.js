@@ -62,33 +62,40 @@ const Controls = () => {
         notify(`Error: Could not execute command ${command} on device ${device['device name']}`);
       });
   };
-
-  const getLogs = (device) => {
-    return fetch(`${record['ip address']?.split(' ')[0]}:8080/system/logfiles`, {
-      method: 'GET',
-      headers: new Headers({
-      'Content-Type': 'application/json',
-      'Authorization': `Basic ${btoa(`admin:${device['device name'].split('-')[0]}`)}`,
-      }),
-      insecureHTTPParser: true,
-    })
-      .then((response) => {
-        if (response.status < 200 || response.status >= 300) {
-          throw new Error(response.statusText);
-        }
-        return response.body
-          .getReader()
-          .read()
-          .then((streamData) => {
-            const result = utf8decode(streamData.value);
-            if (result === 'OK') notify(`Successfully downloaded Logs on device ${device['device name']}`);
-          });
-      })
-      .catch(() => {
-        notify(`Error: Could not downloads Logs from device ${device['device name']}`);
+  
+  const getLogs = async (device) => {
+    try {
+      const ipAddress = device['ip address']?.split(' ')[0];
+      const url = `http://${ipAddress}:8080/system/logfiles`; 
+      const eurid = device['device name']?.split('-')[0];
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Basic ${btoa(`admin:${eurid}`)}`,
+        },
       });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch logs: ${response.status} ${response.statusText}`);
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = `logs_${eurid}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+
+      notify(`Success: Logs downloaded for device ${device['device name']}`);
+    } catch (error) {
+      notify(`Error: Unable to download logs for device ${device['device name']}. ${error.message}`);
+      console.error(error);
+    }
   };
-    
+
   if (!record) return null;
 
   const isOffline = record['api heartbeat state'] !== 'online';
