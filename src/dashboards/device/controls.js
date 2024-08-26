@@ -63,6 +63,32 @@ const Controls = () => {
       });
   };
 
+  const getLogs = (device) => {
+    return fetch(`${record['ip address']?.split(' ')[0]}:8080/system/logfiles`, {
+      method: 'GET',
+      headers: new Headers({
+      'Content-Type': 'application/json',
+      'Authorization': `Basic ${btoa(`admin:${device['device name'].split('-')[0]}`)}`,
+      }),
+      insecureHTTPParser: true,
+    })
+      .then((response) => {
+        if (response.status < 200 || response.status >= 300) {
+          throw new Error(response.statusText);
+        }
+        return response.body
+          .getReader()
+          .read()
+          .then((streamData) => {
+            const result = utf8decode(streamData.value);
+            if (result === 'OK') notify(`Successfully downloaded Logs on device ${device['device name']}`);
+          });
+      })
+      .catch(() => {
+        notify(`Error: Could not downloads Logs from device ${device['device name']}`);
+      });
+  };
+    
   if (!record) return null;
 
   const isOffline = record['api heartbeat state'] !== 'online';
@@ -111,11 +137,11 @@ const Controls = () => {
         <Button
           variant='outlined'
           size='medium'
-          onClick={() => {}}
+          onClick={() => getLogs(record)}
           startIcon={<PowerSettingsNewIcon />}
           disabled={true}
         >
-          Shutdown
+          Download Logs
         </Button>
       </CardActions>
     </>
