@@ -139,7 +139,7 @@ const Controls = () => {
           size='medium'
           onClick={() => getLogs(record)}
           startIcon={<PowerSettingsNewIcon />}
-          disabled={true}
+          disabled={isOffline}
         >
           Download Logs
         </Button>
