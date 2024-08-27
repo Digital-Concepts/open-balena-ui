@@ -1,5 +1,5 @@
 import LightModeIcon from '@mui/icons-material/LightMode';
-import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
+import DownloadIcon from '@mui/icons-material/Download';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { Box, Button, CardActions, Typography } from '@mui/material';
 import * as React from 'react';
@@ -145,7 +145,7 @@ const Controls = () => {
           variant='outlined'
           size='medium'
           onClick={() => getLogs(record)}
-          startIcon={<PowerSettingsNewIcon />}
+          startIcon={<DownloadIcon />}
           disabled={isOffline}
         >
           Download Logs
