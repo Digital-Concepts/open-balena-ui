@@ -8,6 +8,12 @@ const webpackConfig = require('../webpack.config.js');
 const Minio = require('minio');
 const jwt = require('njwt');
 require('dotenv').config();
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const fs = require('fs');
+const portfinder = require('portfinder');
+const waitPort = require('wait-port');
+const { spawn, execSync } = require('child_process');
+
 
 const minioClient = new Minio.Client({
   endPoint: process.env.OPEN_BALENA_S3_URL.split('://')[1],
@@ -89,6 +95,103 @@ app.post('/deleteOrphanedRegistryImages', async (req, res) => {
     */
   });
 });
+
+app.post('/download-logs', async (req, res) => {
+  let tunnelProcess; 
+  try {
+    const { uuid, password } = req.body;
+    const token = req.headers.authorization.split('Bearer ')[1];
+    jwt.verify(token, process.env.OPEN_BALENA_JWT_SECRET);
+
+    const sessionDir = `/tmp/sessions/${uuid}`;
+    fs.mkdirSync(sessionDir, { recursive: true });
+
+    const loginCmd = `/usr/bin/balena login --token ${token} --unsupported`;
+    try {
+      const loginResult = execSync(loginCmd, { env: { ...process.env, BALENARC_DATA_DIRECTORY: sessionDir } });
+      console.log('Login successful:', loginResult.toString());
+    } catch (error) {
+      console.error('Login failed:', error.message);
+      fs.rmSync(sessionDir, { recursive: true, force: true });
+      return res.status(500).json({ error: 'Failed to authenticate with Balena' });
+    }
+
+    const tunnelPort = await portfinder.getPortPromise({ port: 20000, stopPort: 29999 });
+    const tunnelCmd = `/usr/bin/balena tunnel ${uuid} -p 8080:127.0.0.1:${tunnelPort} --unsupported`;
+
+    tunnelProcess = spawn(tunnelCmd, {
+      shell: true,
+      env: { ...process.env, BALENARC_DATA_DIRECTORY: sessionDir },
+    });
+
+    tunnelProcess.stdout.on('data', (data) => {
+      console.log(`Tunnel stdout: ${data}`);
+    });
+
+    tunnelProcess.stderr.on('data', (data) => {
+      console.error(`Tunnel stderr: ${data}`);
+    });
+
+    const portOpen = await waitPort({ host: '127.0.0.1', port: tunnelPort, timeout: 20000 });
+    if (!portOpen) {
+      console.log('Failed to open tunnel.');
+      tunnelProcess.kill('SIGINT');
+      fs.rmSync(sessionDir, { recursive: true, force: true });
+      return res.status(500).json({ error: 'Failed to open tunnel' });
+    }
+
+    const logResponse = await fetch(`http://127.0.0.1:${tunnelPort}/system/logfiles`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Basic ${Buffer.from(`admin:${password}`).toString('base64')}`,
+      },
+    });
+
+    if (!logResponse.ok) {
+      tunnelProcess.kill('SIGINT');  
+      fs.rmSync(sessionDir, { recursive: true, force: true });
+      return res.status(logResponse.status).json({ error: 'Failed to fetch logs' });
+    }
+
+    res.setHeader('Content-Disposition', `attachment; filename="logs_${password}.zip"`);
+    res.setHeader('Content-Type', 'application/zip');
+    logResponse.body.pipe(res);
+
+    logResponse.body.on('end', () => {
+      console.log('Logs download complete, closing tunnel...');
+      if (tunnelProcess) {
+        tunnelProcess.kill('SIGINT');
+        tunnelProcess.on('close', (code) => {
+          console.log(`Tunnel process exited with code ${code}`);
+        });
+      }
+      fs.rmSync(sessionDir, { recursive: true, force: true });
+    });
+
+  } catch (error) {
+    if (tunnelProcess) {
+      console.log('Error occurred, closing tunnel...');
+      tunnelProcess.kill('SIGINT');  
+    }
+    console.error('Error during log download', error);
+    res.status(500).json({ error: 'An error occurred while downloading logs' });
+  } finally {
+
+    if (tunnelProcess) {
+      tunnelProcess.kill('SIGINT');  
+      tunnelProcess.on('close', (code) => {
+        console.log(`Tunnel process exited with code ${code}`);
+      });
+    }
+  }
+});
+
+process.on('exit', () => {
+  if (tunnelProcess) {
+    tunnelProcess.kill('SIGINT');
+  }
+});
+
 
 // React client endpoints
 const memfs = createFsFromVolume(new Volume());

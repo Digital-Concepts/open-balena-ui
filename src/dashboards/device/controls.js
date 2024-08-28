@@ -63,38 +63,41 @@ const Controls = () => {
       });
   };
   
-  const getLogs = async (device) => {
-    try {
-      const ipAddress = device['ip address']?.split(' ')[0];
-      const url = `http://${ipAddress}:8080/system/logfiles`; 
-      const eurid = device['device name']?.split('-')[0];
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Basic ${btoa(`admin:${eurid}`)}`,
-        },
-      });
+const initiateLogDownload = async (device) => {
+  const session = authProvider.getSession();
+  try {
+    const response = await fetch('/download-logs', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.jwt}`,
+      },
+      body: JSON.stringify({
+        uuid: device.uuid, 
+        password: device['device name']?.split('-')[0],   
+      }),
+    });
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch logs: ${response.status} ${response.statusText}`);
-      }
-
+    if (response.ok) {
       const blob = await response.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
+      const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = downloadUrl;
-      a.download = `logs_${eurid}.zip`;
+      a.href = url;
+      a.download = `logs_${device.uuid}.zip`;  // Set the desired file name
       document.body.appendChild(a);
       a.click();
       a.remove();
-      window.URL.revokeObjectURL(downloadUrl);
-
-      notify(`Success: Logs downloaded for device ${device['device name']}`);
-    } catch (error) {
-      notify(`Error: Unable to download logs for device ${device['device name']}. ${error.message}`);
-      console.error(error);
+      window.URL.revokeObjectURL(url);
+    } else {
+      console.error('Failed to download logs', response.statusText);
+      alert('Failed to download logs. Please try again.');
     }
-  };
+  } catch (error) {
+    console.error('Error while downloading logs', error);
+    alert('An error occurred while downloading logs. Please try again.');
+  }
+};
+
 
   if (!record) return null;
 
@@ -144,7 +147,7 @@ const Controls = () => {
         <Button
           variant='outlined'
           size='medium'
-          onClick={() => getLogs(record)}
+          onClick={() => initiateLogDownload(record)}
           startIcon={<DownloadIcon />}
           disabled={isOffline}
         >
