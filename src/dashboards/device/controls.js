@@ -83,7 +83,7 @@ const initiateLogDownload = async (device) => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `logs_${device.uuid}.zip`;  // Set the desired file name
+      a.download = `logs_${device['device name']?.split('-')[0]}.zip`;  // Set the desired file name
       document.body.appendChild(a);
       a.click();
       a.remove();
