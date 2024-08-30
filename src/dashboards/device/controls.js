@@ -1,6 +1,8 @@
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DownloadIcon from '@mui/icons-material/Download';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import FeedIcon from '@mui/icons-material/Feed';
+import FeedOutlinedIcon from '@mui/icons-material/FeedOutlined';
 import { Box, Button, CardActions, Typography } from '@mui/material';
 import * as React from 'react';
 import {
@@ -98,6 +100,47 @@ const initiateLogDownload = async (device) => {
   }
 };
 
+const changeLogLevelInfo = async (device) => {
+  const session = authProvider.getSession();
+  try {
+    const response = await fetch('/log-level', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.jwt}`,
+      },
+      body: JSON.stringify({
+        uuid: device.uuid, 
+        password: device['device name'],   
+        logLevels: 'info',
+      }),
+    });
+  } catch (error) {
+    console.error('Error while downloading logs', error);
+    alert('An error occurred while downloading logs. Please try again.');
+  }
+};
+
+const changeLogLevelDebug = async (device) => {
+  const session = authProvider.getSession();
+  try {
+    const response = await fetch('/log-level', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.jwt}`,
+      },
+      body: JSON.stringify({
+        uuid: device.uuid, 
+        password: device['device name'],   
+        logLevels: 'debug',
+      }),
+    });
+  } catch (error) {
+    console.error('Error while downloading logs', error);
+    alert('An error occurred while downloading logs. Please try again.');
+  }
+};
 
   if (!record) return null;
 
@@ -153,6 +196,25 @@ const initiateLogDownload = async (device) => {
         >
           Download Logs
         </Button>
+        <Button
+          variant='outlined'
+          size='medium'
+          onClick={() => changeLogLevelInfo(record)}
+          startIcon={<FeedIcon />}
+          disabled={isOffline}
+        >
+          Logs to info
+        </Button>
+        <Button
+          variant='outlined'
+          size='medium'
+          onClick={() => changeLogLevelDebug(record)}
+          startIcon={<FeedOutlinedIcon />}
+          disabled={isOffline}
+        >
+          Logs to debug
+        </Button>
+        
       </CardActions>
     </>
   );
