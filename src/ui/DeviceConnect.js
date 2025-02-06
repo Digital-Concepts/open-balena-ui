@@ -106,8 +106,18 @@ export const DeviceConnect = (props) => {
       let REMOTE_HOST = process.env.REACT_APP_OPEN_BALENA_REMOTE_URL;
 
       let session = authProvider.getSession();
+      const userId = session.object.id;
 
-      setUsername(session.object.username);
+      dataProvider.getList('user', {
+        pagination: { page: 1, perPage: 1000 },
+        sort: { field: 'id', order: 'ASC' },
+        filter: { id: userId },
+      })
+      .then((user) => {
+        const username = user.data[0].username;
+        setUsername(username);
+        return username;
+      });
 
       let containerChoices = [{ id: 0, name: 'host' }];
       let containerServices = [[{ id: 0, name: 'SSH' }]];
