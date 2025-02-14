@@ -1,10 +1,10 @@
-FROM debian:bullseye
+FROM debian:bookworm
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-# Update nodejs version to 17.x
+# Update nodejs version to 20.x
 RUN apt-get update && apt-get install -y curl && \
-    curl -sL https://deb.nodesource.com/setup_17.x | bash -
+    curl -sL https://deb.nodesource.com/setup_20.x | bash -
 
 RUN apt-get update && apt-get install -y \
     nodejs \
@@ -30,10 +30,7 @@ COPY ./webpack.config.js ./
 COPY ./package.json ./
 COPY ./package-lock.json ./
 
-
-RUN npm install --no-fund --no-update-notifier && \
-    npm install portfinder wait-port node-fetch && \
-    npm cache clean --force
+RUN npm ci --no-fund --no-update-notifier
 
 COPY start.sh ./
 
