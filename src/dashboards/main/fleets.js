@@ -30,6 +30,10 @@ import { tableCellClasses } from '@mui/material/TableCell';
 import { EditButton } from 'react-admin';
 import EnvVarButton from '../../ui/EnvVarButton';
 import { getSemver } from '../../ui/SemVerChip';
+import versions from '../../versions';
+import environment from '../../lib/reactAppEnv';
+
+const isPinnedOnRelease = versions.resource('isPinnedOnRelease', environment.REACT_APP_OPEN_BALENA_API_VERSION);
 
 const fleetCardFilters = [<SearchInput source='#app name,is of-class@ilike' alwaysOn />];
 
@@ -122,7 +126,7 @@ export const FleetCards = () => (
                                 <ReferenceField
                                   record={record}
                                   label='Target Rel.'
-                                  source='is pinned on-release'
+                                  source={isPinnedOnRelease}
                                   reference='release'
                                   target='id'
                                 >

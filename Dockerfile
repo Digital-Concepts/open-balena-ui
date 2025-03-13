@@ -1,40 +1,27 @@
-FROM debian:bullseye
+FROM node:22-alpine AS base
 
-ARG DEBIAN_FRONTEND=noninteractive
-
-# Update nodejs version to 17.x
-RUN apt-get update && apt-get install -y curl && \
-    curl -sL https://deb.nodesource.com/setup_17.x | bash -
-
-RUN apt-get update && apt-get install -y \
-    nodejs \
-    node-typescript \
-    jq \
-    unzip \
-    && rm -rf /var/lib/apt/lists/*
+ENV NODE_ENV=production
 
 WORKDIR /usr/src/app
-
-# Install balena-cli
-ENV BALENA_CLI_VERSION 15.2.3
-RUN curl -sSL https://github.com/balena-io/balena-cli/releases/download/v$BALENA_CLI_VERSION/balena-cli-v$BALENA_CLI_VERSION-linux-x64-standalone.zip > balena-cli.zip && \
-  unzip balena-cli.zip && \
-  mv balena-cli/* /usr/bin && \
-  rm -rf balena-cli.zip balena-cli
-
-ENV BALENARC_BALENA_URL=digital-concepts.eu
-
-COPY ./server ./server
-COPY ./src ./src
-COPY ./webpack.config.js ./
 COPY ./package.json ./
 COPY ./package-lock.json ./
 
+RUN npm install --no-fund --no-update-notifier --no-audit \
+    && npm cache clean --force
 
-RUN npm install --no-fund --no-update-notifier && \
-    npm install portfinder wait-port node-fetch && \
-    npm cache clean --force
+FROM base AS builder
 
-COPY start.sh ./
+COPY ./server ./server
+COPY ./src ./src
+COPY ./webpack.*.js ./
 
-CMD ["bash", "start.sh"]
+RUN NODE_ENV=development npm install --no-fund --no-update-notifier --no-audit \
+    && npm cache clean --force \
+    && BABEL_ENV=node npm run build
+
+FROM base AS production-image
+
+COPY --from=builder /usr/src/app/server/ /usr/src/app/server/
+COPY --from=builder /usr/src/app/dist/ /usr/src/app/dist/
+
+CMD ["npm", "run", "serve"]
