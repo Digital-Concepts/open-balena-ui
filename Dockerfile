@@ -3,6 +3,7 @@ FROM node:22-alpine AS base
 ENV NODE_ENV=production
 
 RUN apk update && apk add --no-cache \
+    curl \
     unzip \
     && rm -rf /var/cache/apk/*
 
