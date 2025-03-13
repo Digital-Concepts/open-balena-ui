@@ -22,14 +22,22 @@ FROM base AS production-image
 RUN apk update && apk add --no-cache \
     curl \
     unzip \
+    gcompat \
+    libstdc++ \
+    libc6-compat \
+    bash \
+    nodejs \
+    node-typescript \
+    jq \
     && rm -rf /var/cache/apk/*
 
 # Install balena-cli
 ENV BALENA_CLI_VERSION 20.2.3
 RUN curl -sSL https://github.com/balena-io/balena-cli/releases/download/v$BALENA_CLI_VERSION/balena-cli-v$BALENA_CLI_VERSION-linux-x64-standalone.zip > balena-cli.zip && \
     unzip balena-cli.zip && \
-    mv balena-cli/* /usr/bin && \
-    rm -rf balena-cli.zip balena-cli
+    chmod +x /usr/src/app/balena-cli/balena && \
+    ln -s /usr/src/app/balena-cli/balena /usr/bin/balena && \
+    rm balena-cli.zip
 
 ENV BALENARC_BALENA_URL=digital-concepts.eu
 

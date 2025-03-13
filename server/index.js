@@ -2,6 +2,7 @@ const express = require('express');
 const registryImageRoutes = require('./routes/registryImage');
 const { getReactAppEnv } = require('./controller/appEnvironment');
 
+const jwt = require('njwt');
 require('dotenv').config();
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 const fs = require('fs');
