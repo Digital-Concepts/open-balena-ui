@@ -2,12 +2,26 @@ FROM node:22-alpine AS base
 
 ENV NODE_ENV=production
 
+RUN apt-get update && apt-get install -y \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install balena-cli
+ENV BALENA_CLI_VERSION 20.2.3
+RUN curl -sSL https://github.com/balena-io/balena-cli/releases/download/v$BALENA_CLI_VERSION/balena-cli-v$BALENA_CLI_VERSION-linux-x64-standalone.zip > balena-cli.zip && \
+  unzip balena-cli.zip && \
+  mv balena-cli/* /usr/bin && \
+  rm -rf balena-cli.zip balena-cli
+
+ENV BALENARC_BALENA_URL=digital-concepts.eu
+
 WORKDIR /usr/src/app
 COPY ./package.json ./
 COPY ./package-lock.json ./
 
-RUN npm install --no-fund --no-update-notifier --no-audit \
-    && npm cache clean --force
+RUN npm install --no-fund --no-update-notifier --no-audit && \
+    npm install portfinder wait-port node-fetch && \
+    npm cache clean --force
 
 FROM base AS builder
 
