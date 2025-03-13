@@ -3,6 +3,11 @@ const registryImageRoutes = require('./routes/registryImage');
 const { getReactAppEnv } = require('./controller/appEnvironment');
 
 require('dotenv').config();
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const fs = require('fs');
+const portfinder = require('portfinder');
+const waitPort = require('wait-port');
+const { spawn, execSync } = require('child_process');
 
 const PORT = parseInt(process.env.PORT || 3000);
 const HOST = '0.0.0.0';

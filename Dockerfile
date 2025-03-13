@@ -2,9 +2,9 @@ FROM node:22-alpine AS base
 
 ENV NODE_ENV=production
 
-RUN apt-get update && apt-get install -y \
+RUN apk update && apk add --no-cache \
     unzip \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/cache/apk/*
 
 # Install balena-cli
 ENV BALENA_CLI_VERSION 20.2.3
