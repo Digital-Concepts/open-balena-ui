@@ -27,7 +27,6 @@ RUN apk update && apk add --no-cache \
     libc6-compat \
     bash \
     nodejs \
-    node-typescript \
     jq \
     openssh-client \
     && rm -rf /var/cache/apk/*
