@@ -29,6 +29,7 @@ RUN apk update && apk add --no-cache \
     nodejs \
     node-typescript \
     jq \
+    openssh-client \
     && rm -rf /var/cache/apk/*
 
 # Install balena-cli

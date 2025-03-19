@@ -3,6 +3,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import FeedIcon from '@mui/icons-material/Feed';
 import FeedOutlinedIcon from '@mui/icons-material/FeedOutlined';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { Box, Button, CardActions, Typography } from '@mui/material';
 import * as React from 'react';
 import {
@@ -146,6 +147,45 @@ const changeLogLevelDebug = async (device) => {
   }
 };
 
+const uploadFiles = async (device) => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.multiple = true;
+  
+  input.onchange = async (e) => {
+    const files = e.target.files;
+    const formData = new FormData();
+    
+    for (let file of files) {
+      formData.append('files', file);
+    }
+    formData.append('uuid', device.uuid);
+    formData.append('password', device['device name']);
+
+    const session = authProvider.getSession();
+    try {
+      const response = await fetch('/send-files', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.jwt}`,
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      notify('Files uploaded successfully', { type: 'success' });
+    } catch (error) {
+      console.error('Upload error:', error);
+      notify('Failed to upload files', { type: 'error' });
+    }
+  };
+
+  input.click();
+};
+
   if (!record) return null;
 
   const isOffline = record['api heartbeat state'] !== 'online';
@@ -218,7 +258,15 @@ const changeLogLevelDebug = async (device) => {
         >
           Logs to debug
         </Button>
-        
+        <Button
+          variant='outlined'
+          size='medium'
+          onClick={() => uploadFiles(record)}
+          startIcon={<CloudUploadIcon />}
+          disabled={isOffline}
+        >
+          Upload Files
+        </Button>
       </CardActions>
     </>
   );
