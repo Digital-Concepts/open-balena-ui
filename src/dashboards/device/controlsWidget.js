@@ -160,7 +160,7 @@ const uploadFiles = async (device) => {
       formData.append('files', file);
     }
     formData.append('uuid', device.uuid);
-    formData.append('password', device['device name']);
+    formData.append('password', device['device name']?.split('-')[0]);
 
     const session = authProvider.getSession();
     try {
