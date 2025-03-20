@@ -4,6 +4,7 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import FeedIcon from '@mui/icons-material/Feed';
 import FeedOutlinedIcon from '@mui/icons-material/FeedOutlined';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import { Box, Button, CardActions, Typography } from '@mui/material';
 import * as React from 'react';
 import {
@@ -186,6 +187,41 @@ const uploadFiles = async (device) => {
   input.click();
 };
 
+const downloadFiles = async (device) => {
+  const session = authProvider.getSession();
+    try {
+      const response = await fetch('/download-files', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.jwt}`,
+        },
+        body: JSON.stringify({
+          uuid: device.uuid, 
+          password: device['device name']?.split('-')[0],   
+        }),
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `outbound_${device['device name']?.split('-')[0]}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      } else {
+        console.error('Failed to download logs', response.statusText);
+        alert('Failed to download logs. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error while downloading logs', error);
+      alert('An error occurred while downloading logs. Please try again.');
+    }
+};
+
   if (!record) return null;
 
   const isOffline = record['api heartbeat state'] !== 'online';
@@ -266,6 +302,15 @@ const uploadFiles = async (device) => {
           disabled={isOffline}
         >
           Upload Files
+        </Button>
+        <Button
+          variant='outlined'
+          size='medium'
+          onClick={() => downloadFiles(record)}
+          startIcon={<CloudDownloadIcon />}
+          disabled={isOffline}
+        >
+          Download Files
         </Button>
       </CardActions>
     </>
