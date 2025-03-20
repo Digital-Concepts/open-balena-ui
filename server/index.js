@@ -242,7 +242,7 @@ app.post('/send-files', upload.array('files'), async (req, res) => {
     }
     for (const file of req.files) {
       // We are going to use scp to transfer the file through the tunnel.
-      const scpCommand = `sshpass -p "${password}" scp -P ${tunnelPort} -o StrictHostKeyChecking=no ${file.path} root@127.0.0.1:/opt/spaceport/${file.originalname}`;
+      const scpCommand = `sshpass -p "${password}" scp -P ${tunnelPort} -o StrictHostKeyChecking=no  -o UserKnownHostsFile=/dev/null ${file.path} root@127.0.0.1:/opt/spaceport/${file.originalname}`;
       
       await new Promise((resolve, reject) => {
         exec(scpCommand, (error, stdout, stderr) => {
@@ -259,12 +259,109 @@ app.post('/send-files', upload.array('files'), async (req, res) => {
     }
 
     cleanupTunnel(tunnelProcess, sessionDir);
+    console.log('Client disconnected');
     res.json({ success: true, message: 'Files uploaded successfully' });
 
   } catch (error) {
     cleanupTunnel(tunnelProcess, sessionDir);
     console.error('Error during file transfer:', error.message);
     res.status(500).json({ error: 'An error occurred while transferring files' });
+  }
+});
+
+app.post('/download-files', async (req, res) => {
+  let tunnelProcess; 
+  const sessionDir = `/tmp/sessions/${req.body.uuid}`;
+  try {
+    const { uuid, password } = req.body;
+    const token = req.headers.authorization.split('Bearer ')[1];
+    jwt.verify(token, process.env.OPEN_BALENA_JWT_SECRET);
+
+    const sessionDir = `/tmp/sessions/${uuid}`;
+    fs.mkdirSync(sessionDir, { recursive: true });
+
+    const loginCmd = `/usr/bin/balena login --token ${token} --unsupported`;
+    try {
+      const loginResult = execSync(loginCmd, { env: { ...process.env, BALENARC_DATA_DIRECTORY: sessionDir } });
+      console.log('Login successful:', loginResult.toString());
+    } catch (error) {
+      console.error('Login failed:', error.message);
+      fs.rmSync(sessionDir, { recursive: true, force: true });
+      return res.status(500).json({ error: 'Failed to authenticate with Balena' });
+    }
+
+    const tunnelPort = await portfinder.getPortPromise({ port: 20000, stopPort: 29999 });
+    const tunnelCmd = `/usr/bin/balena device tunnel ${uuid} -p 12738:127.0.0.1:${tunnelPort} --unsupported`;
+
+    tunnelProcess = spawn(tunnelCmd, {
+      shell: true,
+      env: { ...process.env, BALENARC_DATA_DIRECTORY: sessionDir },
+    });
+
+    tunnelProcess.stdout.on('data', (data) => {
+      console.log(`Tunnel stdout: ${data}`);
+    });
+
+    tunnelProcess.stderr.on('data', (data) => {
+      console.error(`Tunnel stderr: ${data}`);
+    });
+
+    const portOpen = await waitPort({ host: '127.0.0.1', port: tunnelPort, timeout: 20000 });
+    if (!portOpen) {
+      console.log('Failed to open tunnel.');
+      cleanupTunnel(tunnelProcess, sessionDir);
+      return res.status(500).json({ error: 'Failed to open tunnel' });
+    }
+
+    const downloadPath = `/tmp/sessions/${uuid}/download_${Date.now()}`;
+    fs.mkdirSync(downloadPath, { recursive: true });
+
+    // Download the remote directory using scp
+    const scpCommand = `sshpass -p "${password}" scp -P ${tunnelPort} -r -o StrictHostKeyChecking=no  -o UserKnownHostsFile=/dev/null root@127.0.0.1:/opt/spaceport/outbound/* ${downloadPath}/`;
+    
+    await new Promise((resolve, reject) => {
+      exec(scpCommand, (error, stdout, stderr) => {
+        if (error) {
+          console.error(`SCP error: ${error}`);
+          reject(error);
+        } else {
+          console.log('Files downloaded successfully');
+          resolve();
+        }
+      });
+    });
+
+    // Create zip file from downloaded content
+    const zipFile = `/tmp/sessions/${uuid}/outbound_${Date.now()}.zip`;
+    await new Promise((resolve, reject) => {
+      exec(`cd ${downloadPath} && zip -r ${zipFile} .`, (error, stdout, stderr) => {
+        if (error) {
+          console.error(`Zip error: ${error}`);
+          reject(error);
+        } else {
+          resolve();
+        }
+      });
+    });
+
+    // Stream the zip file back to client
+    res.setHeader('Content-Disposition', `attachment; filename="outbound_${password}.zip"`);
+    res.setHeader('Content-Type', 'application/zip');
+    
+    const fileStream = fs.createReadStream(zipFile);
+    fileStream.pipe(res);
+
+    fileStream.on('end', () => {
+      // Cleanup after streaming is complete
+      fs.rmSync(downloadPath, { recursive: true, force: true });
+      fs.unlinkSync(zipFile);
+      cleanupTunnel(tunnelProcess, sessionDir);
+    });
+
+  } catch (error) {
+    cleanupTunnel(tunnelProcess, sessionDir);
+    console.error('Error during file download:', error);
+    res.status(500).json({ error: 'An error occurred while downloading files' });
   }
 });
 
