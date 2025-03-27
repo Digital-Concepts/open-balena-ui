@@ -154,20 +154,13 @@ export const DeviceList = (props) => {
 
         <ReleaseField label='Current Release' source='is running-release' />
 
-        <ReferenceField label='Device Type' source='is of-device type' reference='device type' target='id' link={false}>
+        <ReferenceField label='Notes' source='note' reference='note' target='id' link={false}>
           <TextField source='slug' />
         </ReferenceField>
 
         <ReferenceField label='Fleet' source='belongs to-application' reference='application' target='id'>
           <TextField source='app name' />
         </ReferenceField>
-
-        <FunctionField
-          label='OS'
-          render={(record) =>
-            record['os version'] && record['os variant'] ? `${record['os version']}-${record['os variant']}` : ''
-          }
-        />
 
         <FunctionField
           label='UUID'
