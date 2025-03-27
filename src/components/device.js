@@ -127,7 +127,7 @@ export const ReleaseField = (props) => {
   );
 };
 
-const deviceFilters = [<SearchInput source='#uuid,device name,status@ilike' alwaysOn />];
+const deviceFilters = [<SearchInput source='#uuid,device name,note,status@ilike' alwaysOn />];
 
 const CustomBulkActionButtons = (props) => {
   const { selectedIds } = useListContext();
