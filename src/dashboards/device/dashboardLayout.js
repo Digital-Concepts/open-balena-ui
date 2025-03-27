@@ -13,82 +13,89 @@ import TagsWidget from './tagsWidget';
 import DeviceConnectButton from '../../ui/DeviceConnectButton';
 import { OpenInFull } from '@mui/icons-material';
 import SummaryWidget from './summaryWidget';
+import { Helmet } from 'react-helmet';
 
 const DashboardLayout = () => {
-  const record = useRecordContext();
-  const theme = useTheme();
+	const record = useRecordContext();
+	const theme = useTheme();
 
-  if (!record) {
-    return null;
-  }
+	if (!record) {
+		return null;
+	}
 
-  return (
-    <>
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-        }}
-      >
-        <div style={{ flex: 2, margin: '7.5px', minWidth: '600px' }}>
-          <Card style={{ padding: '15px' }}>
-            <ControlsWidget />
-          </Card>
+	return (
+		<>
+			<Box
+				sx={{
+					display: 'flex',
+					justifyContent: 'space-between',
+					flexWrap: 'wrap',
+				}}
+			>
+				<div style={{ flex: 2, margin: '7.5px', minWidth: '600px' }}>
+					<Card style={{ padding: '15px' }}>
+						<ControlsWidget />
+					</Card>
+					<Helmet>
+						<title>
+							{record
+								? `${record['device name']} - Open Balena Admin`
+								: 'Device Dashboard'}
+						</title>
+					</Helmet>
+					<Card sx={{ padding: '15px', marginTop: '15px' }}>
+						<Title title="/" />
+						<TabbedShowLayout>
+							<TabbedShowLayout.Tab label="Summary">
+								<SummaryWidget />
+							</TabbedShowLayout.Tab>
+							<TabbedShowLayout.Tab label="Config Vars">
+								<ConfigVarsWidget />
+							</TabbedShowLayout.Tab>
+							<TabbedShowLayout.Tab label="Env Vars">
+								<EnvVarsWidget />
+							</TabbedShowLayout.Tab>
+							<TabbedShowLayout.Tab label="Service Vars">
+								<ServiceVarsWidget />
+							</TabbedShowLayout.Tab>
+							<TabbedShowLayout.Tab label="Tags">
+								<TagsWidget />
+							</TabbedShowLayout.Tab>
+						</TabbedShowLayout>
+					</Card>
 
-          <Card sx={{ padding: '15px', marginTop: '15px' }}>
-            <Title title='/' />
-            <TabbedShowLayout>
-              <TabbedShowLayout.Tab label='Summary'>
-                <SummaryWidget />
-              </TabbedShowLayout.Tab>
-              <TabbedShowLayout.Tab label='Config Vars'>
-                <ConfigVarsWidget />
-              </TabbedShowLayout.Tab>
-              <TabbedShowLayout.Tab label='Env Vars'>
-                <EnvVarsWidget />
-              </TabbedShowLayout.Tab>
-              <TabbedShowLayout.Tab label='Service Vars'>
-                <ServiceVarsWidget />
-              </TabbedShowLayout.Tab>
-              <TabbedShowLayout.Tab label='Tags'>
-                <TagsWidget />
-              </TabbedShowLayout.Tab>
-            </TabbedShowLayout>
-          </Card>
+					<Card sx={{ padding: '15px', marginTop: '15px' }}>
+						<DeviceServices device={record} />
+					</Card>
+				</div>
 
-          <Card sx={{ padding: '15px', marginTop: '15px' }}>
-            <DeviceServices device={record} />
-          </Card>
-        </div>
+				<div style={{ flex: 3, margin: '7.5px', minWidth: '550px' }}>
+					<Card sx={{ padding: '15px' }}>
+						<UsageWidget />
+					</Card>
 
-        <div style={{ flex: 3, margin: '7.5px', minWidth: '550px' }}>
-          <Card sx={{ padding: '15px' }}>
-            <UsageWidget />
-          </Card>
+					<Card sx={{ padding: 0, marginTop: '15px' }}>
+						<DeviceLogs />
+					</Card>
 
-          <Card sx={{ padding: 0, marginTop: '15px' }}>
-            <DeviceLogs />
-          </Card>
-
-          <Card sx={{ padding: 0, marginTop: '15px' }}>
-            <DeviceConnectButton
-              style={{
-                float: 'right',
-                color: theme.palette.text.primary,
-                backgroundColor: 'white',
-                marginTop: '8px',
-                marginLeft: '-15px',
-              }}
-              connectIcon={<OpenInFull />}
-              connectIconTooltip='Open Fullscreen View'
-            />
-            <DeviceConnect />
-          </Card>
-        </div>
-      </Box>
-    </>
-  );
+					<Card sx={{ padding: 0, marginTop: '15px' }}>
+						<DeviceConnectButton
+							style={{
+								float: 'right',
+								color: theme.palette.text.primary,
+								backgroundColor: 'white',
+								marginTop: '8px',
+								marginLeft: '-15px',
+							}}
+							connectIcon={<OpenInFull />}
+							connectIconTooltip="Open Fullscreen View"
+						/>
+						<DeviceConnect />
+					</Card>
+				</div>
+			</Box>
+		</>
+	);
 };
 
 export default DashboardLayout;

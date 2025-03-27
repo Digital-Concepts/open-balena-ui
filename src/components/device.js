@@ -1,5 +1,5 @@
-import { Tooltip, useTheme } from '@mui/material';
-import { Done, Warning, WarningAmber } from '@mui/icons-material';
+import { Icon, Tooltip, useTheme } from '@mui/material';
+import { Done, Warning, WarningAmber, PushPin } from '@mui/icons-material';
 import dateFormat from 'dateformat';
 import * as React from 'react';
 import {
@@ -81,9 +81,20 @@ export const ReleaseField = (props) => {
 
         const isUpToDate = !!(record[source] && record[source] === record['should be running-release']);
         const isOnline = record['api heartbeat state'] === 'online';
+        const isPinned = !!record[isPinnedOnRelease];
 
         return (
           <>
+            {isPinned && (
+              <Tooltip placement="top" arrow={true} title="Device pinned to specific release">
+                <PushPin sx={{ 
+                  fontSize: '1rem', 
+                  position: 'relative', 
+                  marginRight: '4px',
+                  color: theme.palette.primary.main 
+                }} />
+              </Tooltip>
+            )}
             <ReferenceField label='Current Release' source='is running-release' reference='release' target='id'>
               <SemVerChip sx={{ position: 'relative', top: '-5px' }} />
             </ReferenceField>
@@ -154,18 +165,14 @@ export const DeviceList = (props) => {
 
         <ReleaseField label='Current Release' source='is running-release' />
 
-        <ReferenceField label='Notes' source='note' reference='note' target='id' link={false}>
-          <TextField source='slug' />
-        </ReferenceField>
+        <FunctionField
+            label='Notes'
+            render={(record) => record.note || ''}
+          />
 
         <ReferenceField label='Fleet' source='belongs to-application' reference='application' target='id'>
           <TextField source='app name' />
         </ReferenceField>
-
-        <FunctionField
-          label='UUID'
-          render={(record) => <CopyChip title={record['uuid']} label={record['uuid'].substring(0, 7)} />}
-        />
 
         <Toolbar sx={{ background: 'none', padding: '0' }}>
           <ShowButton variant='outlined' label='' size='small' />
