@@ -13,11 +13,20 @@ import TagsWidget from './tagsWidget';
 import DeviceConnectButton from '../../ui/DeviceConnectButton';
 import { OpenInFull } from '@mui/icons-material';
 import SummaryWidget from './summaryWidget';
-import { Helmet } from 'react-helmet';
+import { useEffect } from 'react'; 
 
 const DashboardLayout = () => {
 	const record = useRecordContext();
 	const theme = useTheme();
+
+	useEffect(() => {
+		document.title = record
+			? `${record['device name']} - Open Balena Admin`
+			: 'Device Dashboard';
+		return () => {
+			document.title = 'Open Balena Admin';
+		};
+	}, [record]);
 
 	if (!record) {
 		return null;
@@ -36,13 +45,6 @@ const DashboardLayout = () => {
 					<Card style={{ padding: '15px' }}>
 						<ControlsWidget />
 					</Card>
-					<Helmet>
-						<title>
-							{record
-								? `${record['device name']} - Open Balena Admin`
-								: 'Device Dashboard'}
-						</title>
-					</Helmet>
 					<Card sx={{ padding: '15px', marginTop: '15px' }}>
 						<Title title="/" />
 						<TabbedShowLayout>
