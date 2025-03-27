@@ -84,23 +84,20 @@ export const ReleaseField = (props) => {
         const isPinned = !!record[isPinnedOnRelease];
 
         return (
-          <>
-            {isPinned && (
-              <Tooltip placement="top" arrow={true} title="Device pinned to specific release">
-                <PushPin sx={{ 
-                  fontSize: '1rem', 
-                  position: 'relative', 
-                  marginRight: '4px',
-                  color: theme.palette.primary.main 
-                }} />
-              </Tooltip>
-            )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div style={{ width: '24px', display: 'flex', alignItems: 'center' }}>
+              {isPinned && (
+                <Tooltip placement="top" arrow={true} title="Device pinned to specific release">
+                  <PushPin sx={{ fontSize: '1.2rem', color: theme.palette.primary.main }} />
+                </Tooltip>
+              )}
+            </div>
+            
             <ReferenceField label='Current Release' source='is running-release' reference='release' target='id'>
-              <SemVerChip sx={{ position: 'relative', top: '-5px' }} />
+              <SemVerChip />
             </ReferenceField>
 
-            {
-              record[source] &&
+            {record[source] && (
               <Tooltip
                 placement='top'
                 arrow={true}
@@ -113,21 +110,17 @@ export const ReleaseField = (props) => {
                   </>
                 }
               >
-                <span style={{
-                  position: 'relative',
-                  top: '3px',
-                  left: '3px',
-                  color: (!isUpToDate && isOnline) ? theme.palette.error.light : theme.palette.text.primary
-                }}>
-                  {
-                    isUpToDate ? <Done /> :
-                    isOnline ? <Warning /> :
-                    <WarningAmber />
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  {isUpToDate ? 
+                    <Done sx={{ fontSize: '1.2rem' }} /> :
+                    isOnline ? 
+                      <Warning sx={{ fontSize: '1.2rem' }} /> :
+                      <WarningAmber sx={{ fontSize: '1.2rem' }} />
                   }
-                </span>
+                </div>
               </Tooltip>
-            }
-          </>
+            )}
+          </div>
         );
       }}
     />
