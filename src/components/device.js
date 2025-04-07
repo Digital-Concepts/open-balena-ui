@@ -156,6 +156,18 @@ export const DeviceList = (props) => {
 
         <OnlineField label='Status' source='api heartbeat state' />
 
+        <FunctionField
+          label='VPN Status'
+          render={(record) => (
+            <Tooltip
+              placement='top'
+              arrow={true}
+              title={'Since ' + dateFormat(new Date(record['last vpn event']))}
+              >
+              {record['is connected to vpn'] ? 'Connected' : 'Disconnected'}
+            </Tooltip>
+            )}
+        />
         <ReleaseField label='Current Release' source='is running-release' />
 
         <FunctionField
