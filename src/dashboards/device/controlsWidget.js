@@ -214,7 +214,7 @@ const downloadFiles = async (device) => {
         window.URL.revokeObjectURL(url);
       } else {
         console.error('Failed to download logs', response.statusText);
-        alert('Failed to download logs. Please try again.');
+        alert('Failed to download Files. Please try again.');
       }
     } catch (error) {
       console.error('Error while downloading logs', error);
