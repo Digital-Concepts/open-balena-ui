@@ -1,5 +1,5 @@
-import { LinearProgress, createTheme, css } from '@mui/material';
 import React from 'react';
+import { LinearProgress, createTheme, css } from '@mui/material';
 
 const buttonBase = {
   defaultProps: {
@@ -534,6 +534,59 @@ const customTheme = createTheme({
 
           'tr.MuiTableRow-hover:hover': {
             backgroundColor: 'rgba(51, 219, 238, 0.07)' + '!important',
+          },
+        },
+      },
+    },
+
+    MuiTooltip: {
+      styleOverrides: {
+        tooltip: {
+          '&.isImage': {
+            background: '#fff',
+            border: '1px solid rgba(97, 97, 97, 0.9)',
+            textAlign: 'center',
+          },
+        },
+      },
+    },
+
+    MuiDialogContent: {
+      styleOverrides: {
+        root: {
+          padding: '0 24px',
+        },
+      },
+    },
+
+    MuiDialogActions: {
+      styleOverrides: {
+        root: {
+          'display': 'flex',
+          'justifyContent': 'space-between',
+          'padding': '30px 24px 20px',
+
+          '&:not(.custom)': {
+            '.MuiButton-root': {
+              '&.MuiButton-containedPrimary': {
+                color: 'white',
+              },
+
+              '&:first-of-type': {
+                'background': 'none',
+                'border': `1px solid ${theme.palette.primary.light}`,
+                'color': theme.palette.primary.main,
+
+                '&:hover': {
+                  background: 'rgba(42, 80, 111, 0.04)',
+                  border: `1px solid ${theme.palette.primary.main}`,
+                },
+              },
+
+              '.MuiButton-icon': {
+                display: 'none',
+              },
+            },
           },
         },
       },
