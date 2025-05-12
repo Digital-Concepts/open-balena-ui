@@ -30,6 +30,7 @@ RUN apk update && apk add --no-cache \
     jq \
     openssh-client \
     sshpass \
+    zip \
     && rm -rf /var/cache/apk/*
 
 # Install balena-cli
