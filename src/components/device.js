@@ -350,7 +350,7 @@ export const DeviceEdit = () => {
             }
           </FormDataConsumer>
 
-          <SelectOperatingSystem label='Target OS' source='should be operated by-release' />
+          <SelectOperatingSystem label='Target OS' source='should be operated by-release' readOnly={true} />
         </Row>
       </SimpleForm>
     </Edit>
