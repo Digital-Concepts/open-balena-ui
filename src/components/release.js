@@ -13,6 +13,7 @@ import {
   TextField,
   Toolbar,
   useDataProvider,
+  useListContext,
 } from 'react-admin';
 import DeleteReleaseButton from '../ui/DeleteReleaseButton';
 import SemVerTextField from '../ui/SemVerTextField';
@@ -41,46 +42,55 @@ const TagChipField = (props) => {
   );
 };
 
+const BulkDeleteButton = (props) => {
+  const { selectedIds } = useListContext();
+  return (
+    <DeleteReleaseButton 
+      selectedIds={selectedIds}
+      context={useDataProvider()}
+      size='small'
+      {...props}
+    >
+      Delete Selected
+    </DeleteReleaseButton>
+  );
+};
 export const ReleaseList = (props) => {
   return (
-    <List filters={releaseFilters}>
-      <Datagrid
-        size='medium'
-        rowClick={false}
-        bulkActionButtons={
-          <DeleteReleaseButton size='small' color='' context={useDataProvider()} {...props}>
-            Delete
-          </DeleteReleaseButton>
-        }
-      >
-        <ReferenceField
-          label='Fleet'
-          source='belongs to-application'
-          reference='application'
-          target='id'
-          sortable={false}
-        >
-          <TextField source='app name' />
-        </ReferenceField>
-        <ReferenceField
-          label='Host'
-          source='belongs to-application'
-          reference='application'
-          target='id'
-          sortable={false}
-          link={false}
-        >
-          <BooleanBinaryField source='is host' />
-        </ReferenceField>
-        <SemVerTextField label='Version' />
-        <ReferenceManyCount
-          label='Devices'
-          source='id'
-          reference='device'
-          target='is running-release'
-          link={false}
-          sortable={true}
-        />
+		<List filters={releaseFilters}>
+			<Datagrid
+				size="medium"
+				rowClick={false}
+				bulkActionButtons={<BulkDeleteButton />}
+			>
+				<ReferenceField
+					label="Fleet"
+					source="belongs to-application"
+					reference="application"
+					target="id"
+					sortable={false}
+				>
+					<TextField source="app name" />
+				</ReferenceField>
+				<ReferenceField
+					label="Host"
+					source="belongs to-application"
+					reference="application"
+					target="id"
+					sortable={false}
+					link={false}
+				>
+					<BooleanBinaryField source="is host" />
+				</ReferenceField>
+				<SemVerTextField label="Version" />
+				<ReferenceManyCount
+					label="Devices"
+					source="id"
+					reference="device"
+					target="is running-release"
+					link={false}
+					sortable={true}
+				/>
 
         <TextField label='Status' source='status' />
 
