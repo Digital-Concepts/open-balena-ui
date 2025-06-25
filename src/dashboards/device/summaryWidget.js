@@ -1,30 +1,46 @@
 import CopyChip from '../../ui/CopyChip';
 import { FunctionField, Link, ReferenceField, TextField, Title, Loading, useGetOne, useRecordContext } from 'react-admin';
-import { styled, Box, Tooltip } from '@mui/material';
+import { styled, Box, Tooltip, useTheme } from '@mui/material';
+import { Done, Warning, WarningAmber, PushPin } from '@mui/icons-material';
 import dateFormat from 'dateformat';
 import SemVerChip from '../../ui/SemVerChip';
-import React from 'react';
+import versions from '../../versions';
+import * as React from 'react';
+import environment from '../../lib/reactAppEnv';
 
-const TargetRelease = () => {
-  const record = useRecordContext();
+const isPinnedOnRelease = versions.resource('isPinnedOnRelease', environment.REACT_APP_OPEN_BALENA_API_VERSION);
 
-  if (!record) {
-    return null;
-  } else if (!record['should be running-release']) {
-    const { data: fleet, isPending, error } = useGetOne('application', { id: record['belongs to-application'] });
-    if (isPending) {
-      return <p>Loading</p>;
-    }
-    if (error) {
-      return <p>ERROR</p>;
-    }
-    record['should be running-release'] = fleet['should be running-release'];
-  }
+const TargetRelease = (props) => {
+  const theme = useTheme();
 
   return (
-    <ReferenceField source='should be running-release' reference='release' target='id'>
-      <SemVerChip />
-    </ReferenceField>
+    <FunctionField
+      {...props}
+      render={(record, source) => {
+        const { data: fleet, isPending, error } = useGetOne('application', { id: record['belongs to-application'] });
+        if (isPending) { return <p>Loading</p>; }
+        if (error) { return <p>ERROR</p>; }
+
+        record['should be running-release'] = record[isPinnedOnRelease] || fleet['should be running-release'];
+
+        const isPinned = !!record[isPinnedOnRelease];
+
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}> 
+            <ReferenceField reference='release' target='id' source='should be running-release'>
+              <SemVerChip style={{marginLeft: '3px', fontSize: '0.7rem'}} />
+            </ReferenceField>
+            <div style={{ width: '24px', display: 'flex', alignItems: 'center' }}>
+              {isPinned && (
+                <Tooltip placement="top" arrow={true} title="Device pinned to specific release">
+                  <PushPin sx={{ fontSize: '1.2rem', color: theme.palette.primary.main }} />
+                </Tooltip>
+              )}
+            </div>
+          </div>
+        );
+      }}
+    />
   );
 };
 
