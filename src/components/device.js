@@ -38,6 +38,9 @@ import SemVerChip, { getSemver } from '../ui/SemVerChip';
 import SemVerTextField from '../ui/SemVerTextField';
 import versions from '../versions';
 import environment from '../lib/reactAppEnv';
+import ReactDOM from 'react-dom';
+import UseAnimations from 'react-useanimations';
+import arrowDown from 'react-useanimations/lib/arrowDown';
 
 const isPinnedOnRelease = versions.resource('isPinnedOnRelease', environment.REACT_APP_OPEN_BALENA_API_VERSION);
 
@@ -114,7 +117,7 @@ export const ReleaseField = (props) => {
                   {isUpToDate ? 
                     <Done sx={{ fontSize: '1.2rem' }} /> :
                     isOnline ? 
-                      <Warning sx={{ fontSize: '1.2rem' }} /> :
+                      <UseAnimations animation={arrowDown} size={24} sx={{ fontSize: '1.2rem' }} /> :
                       <WarningAmber sx={{ fontSize: '1.2rem' }} />
                   }
                 </div>

@@ -7,6 +7,9 @@ import SemVerChip from '../../ui/SemVerChip';
 import versions from '../../versions';
 import * as React from 'react';
 import environment from '../../lib/reactAppEnv';
+import ReactDOM from 'react-dom';
+import UseAnimations from 'react-useanimations';
+import arrowDown from 'react-useanimations/lib/arrowDown';
 
 const isPinnedOnRelease = versions.resource('isPinnedOnRelease', environment.REACT_APP_OPEN_BALENA_API_VERSION);
 
@@ -16,7 +19,7 @@ const TargetRelease = (props) => {
   return (
     <FunctionField
       {...props}
-      render={(record, source) => {
+      render={(record) => {
         const { data: fleet, isPending, error } = useGetOne('application', { id: record['belongs to-application'] });
         if (isPending) { return <p>Loading</p>; }
         if (error) { return <p>ERROR</p>; }
@@ -24,6 +27,7 @@ const TargetRelease = (props) => {
         record['should be running-release'] = record[isPinnedOnRelease] || fleet['should be running-release'];
 
         const isPinned = !!record[isPinnedOnRelease];
+        const isDownloading = record['should be running-release'] !== record['is running-release'];
 
         return (
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}> 
@@ -35,6 +39,13 @@ const TargetRelease = (props) => {
                 <Tooltip placement="top" arrow={true} title="Device pinned to specific release">
                   <PushPin sx={{ fontSize: '1.2rem', color: theme.palette.primary.main }} />
                 </Tooltip>
+              )}
+              {isDownloading && (
+                <Tooltip placement="top" arrow={true} title="Device is downloading a new release">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <UseAnimations animation={arrowDown} size={24} />
+                </div>
+              </Tooltip>
               )}
             </div>
           </div>

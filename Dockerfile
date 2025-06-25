@@ -45,7 +45,7 @@ ENV BALENARC_BALENA_URL=digital-concepts.eu
 
 # Install Node.js dependencies
 RUN npm install --no-fund --no-update-notifier --no-audit --production && \
-    npm install portfinder wait-port node-fetch multer react-helmet && \
+    npm install portfinder wait-port node-fetch multer react-helmet react-useanimations && \
     npm cache clean --force
 
 COPY --from=builder /usr/src/app/server/ /usr/src/app/server/
