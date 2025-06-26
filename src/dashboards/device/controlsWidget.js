@@ -120,7 +120,7 @@ const ControlsWidget = () => {
 		}
 	};
 
-	const changeLogLevelInfo = async (device) => {
+	const controlLogLevel = async (device, logLevel) => {
 		const session = authProvider.getSession();
 		try {
 			const response = await fetch('/log-level', {
@@ -132,7 +132,7 @@ const ControlsWidget = () => {
 				body: JSON.stringify({
 					uuid: device.uuid,
 					password: device['device name'],
-					logLevels: 'info',
+					logLevels: logLevel,
 				}),
 			});
 		} catch (error) {
@@ -141,28 +141,7 @@ const ControlsWidget = () => {
 		}
 	};
 
-	const changeLogLevelDebug = async (device) => {
-		const session = authProvider.getSession();
-		try {
-			const response = await fetch('/log-level', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					Authorization: `Bearer ${session.jwt}`,
-				},
-				body: JSON.stringify({
-					uuid: device.uuid,
-					password: device['device name'],
-					logLevels: 'debug',
-				}),
-			});
-		} catch (error) {
-			console.error('Error while downloading logs', error);
-			alert('An error occurred while downloading logs. Please try again.');
-		}
-	};
-
-	const controlSSH = async (device) => {
+	const controlSSH = async (device, status) => {
 		const session = authProvider.getSession();
 		try {
 			const response = await fetch('/control-ssh', {
@@ -174,7 +153,7 @@ const ControlsWidget = () => {
 				body: JSON.stringify({
 					uuid: device.uuid,
 					password: device['device name'],
-					status: 'on',
+					status: status,
 				}),
 			});
 		} catch (error) {
@@ -329,7 +308,7 @@ const ControlsWidget = () => {
 				<Button
 					variant="outlined"
 					size="medium"
-					onClick={() => changeLogLevelInfo(record)}
+					onClick={() => controlLogLevel(record, 'info')}
 					startIcon={<FeedIcon />}
 					disabled={isOffline}
 				>
@@ -338,7 +317,7 @@ const ControlsWidget = () => {
 				<Button
 					variant="outlined"
 					size="medium"
-					onClick={() => changeLogLevelDebug(record)}
+					onClick={() => controlLogLevel(record, 'debug')}
 					startIcon={<FeedOutlinedIcon />}
 					disabled={isOffline}
 				>
@@ -365,7 +344,7 @@ const ControlsWidget = () => {
 				<Button
 					variant="outlined"
 					size="medium"
-					onClick={() => controlSSH(record)}
+					onClick={() => controlSSH(record, 'on')}
 					startIcon={<SpeakerNotesIcon />}
 					disabled={isOffline}
 				>
@@ -374,7 +353,7 @@ const ControlsWidget = () => {
 				<Button
 					variant="outlined"
 					size="medium"
-					onClick={() => controlSSH(record)}
+					onClick={() => controlSSH(record, 'off')}
 					startIcon={<SpeakerNotesOffIcon />}
 					disabled={isOffline}
 				>
