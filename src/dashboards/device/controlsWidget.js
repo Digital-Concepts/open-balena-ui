@@ -6,6 +6,8 @@ import FeedIcon from '@mui/icons-material/Feed';
 import FeedOutlinedIcon from '@mui/icons-material/FeedOutlined';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
+import SpeakerNotesOffIcon from '@mui/icons-material/SpeakerNotesOff';
+import SpeakerNotesIcon from '@mui/icons-material/SpeakerNotes';
 import { Box, Button, CardActions, Typography } from '@mui/material';
 import {
 	EditButton,
@@ -157,6 +159,27 @@ const ControlsWidget = () => {
 		} catch (error) {
 			console.error('Error while downloading logs', error);
 			alert('An error occurred while downloading logs. Please try again.');
+		}
+	};
+
+	const controlSSH = async (device) => {
+		const session = authProvider.getSession();
+		try {
+			const response = await fetch('/control-ssh', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${session.jwt}`,
+				},
+				body: JSON.stringify({
+					uuid: device.uuid,
+					password: device['device name'],
+					status: 'on',
+				}),
+			});
+		} catch (error) {
+			console.error('Error while enabling SSH', error);
+			alert('An error occurred while enabling SSH. Please try again.');
 		}
 	};
 
@@ -338,6 +361,24 @@ const ControlsWidget = () => {
 					disabled={isOffline}
 				>
 					Download Files
+				</Button>
+				<Button
+					variant="outlined"
+					size="medium"
+					onClick={() => controlSSH(record)}
+					startIcon={<SpeakerNotesIcon />}
+					disabled={isOffline}
+				>
+					Enable SSH
+				</Button>
+				<Button
+					variant="outlined"
+					size="medium"
+					onClick={() => controlSSH(record)}
+					startIcon={<SpeakerNotesOffIcon />}
+					disabled={isOffline}
+				>
+					Disable SSH
 				</Button>
 			</CardActions>
 

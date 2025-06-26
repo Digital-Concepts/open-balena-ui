@@ -36,12 +36,12 @@ const TargetRelease = (props) => {
             </ReferenceField>
             <div style={{ width: '24px', display: 'flex', alignItems: 'center' }}>
               {isPinned && (
-                <Tooltip placement="top" arrow={true} title="Device pinned to specific release">
+                <Tooltip placement="top" arrow={true} title="Device pinned to this specific release">
                   <PushPin sx={{ fontSize: '1.2rem', color: theme.palette.primary.main }} />
                 </Tooltip>
               )}
               {isDownloading && (
-                <Tooltip placement="top" arrow={true} title="Device is downloading a new release">
+                <Tooltip placement="top" arrow={true} title="Device is downloading a release">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <UseAnimations animation={arrowDown} size={24} />
                 </div>
