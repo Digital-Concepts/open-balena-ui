@@ -250,10 +250,10 @@ app.post('/control-ssh', async (req, res) => {
 		console.log('Client disconnected');
 	} catch (error) {
 		cleanupTunnelAndSession(tunnelProcess, sessionDir);
-		console.error('Error durin SSH status change:', error.message);
+		console.error('Error during SSH status change:', error.message);
 		res
 			.status(500)
-			.json({ error: 'An error occurred while changng SSH status' });
+			.json({ error: 'An error occurred while changing SSH status' });
 	}
 });
 
@@ -275,7 +275,7 @@ app.post('/send-files', upload.array('files'), async (req, res) => {
 		tunnelProcess = tp;
 
 		for (const file of req.files) {
-			const scpCommand = `scp -i /path/to/key -P ${tunnelPort} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${file.path} root@127.0.0.1:/opt/spaceport/${file.originalname}`;
+			const scpCommand = `scp -i /certs/tunnelKey/tunnelKey -P ${tunnelPort} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${file.path} root@127.0.0.1:/opt/spaceport/${file.originalname}`;
 			await new Promise((resolve, reject) => {
 				exec(scpCommand, (error, stdout, stderr) => {
 					if (error) {
@@ -296,9 +296,9 @@ app.post('/send-files', upload.array('files'), async (req, res) => {
 	} catch (error) {
 		cleanupTunnelAndSession(tunnelProcess, sessionDir);
 		console.error('Error during file transfer:', error.message);
-		res
-			.status(500)
-			.json({ error: 'An error occurred while transferring files' });
+		res.status(500).json({
+			error: `An error occurred while transferring files: ${error.message}`,
+		});
 	}
 });
 
@@ -322,7 +322,7 @@ app.post('/download-files', async (req, res) => {
 		const downloadPath = `/tmp/sessions/${uuid}/download_${Date.now()}`;
 		fs.mkdirSync(downloadPath, { recursive: true });
 
-		const scpCommand = `scp -i /path/to/key -P ${tunnelPort} -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@127.0.0.1:/opt/spaceport/outbound/* ${downloadPath}/`;
+		const scpCommand = `scp -i /certs/tunnelKey/tunnelKey -P ${tunnelPort} -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@127.0.0.1:/opt/spaceport/outbound/* ${downloadPath}/`;
 		await new Promise((resolve, reject) => {
 			exec(scpCommand, (error, stdout, stderr) => {
 				if (error) {
