@@ -135,9 +135,21 @@ const ControlsWidget = () => {
 					logLevels: logLevel,
 				}),
 			});
+
+			if (response.ok) {
+				notify(`Log level changed to ${logLevel} successfully`, {
+					type: 'success',
+				});
+			} else {
+				const errorData = await response.json().catch(() => ({}));
+				notify(
+					`Failed to change log level: ${errorData.error || response.statusText}`,
+					{ type: 'error' },
+				);
+			}
 		} catch (error) {
-			console.error('Error while downloading logs', error);
-			alert('An error occurred while downloading logs. Please try again.');
+			console.error('Error while changing log level:', error);
+			notify('An error occurred while changing log level', { type: 'error' });
 		}
 	};
 
@@ -156,9 +168,21 @@ const ControlsWidget = () => {
 					status: status,
 				}),
 			});
+
+			if (response.ok) {
+				notify(`SSH ${status === 'on' ? 'enabled' : 'disabled'} successfully`, {
+					type: 'success',
+				});
+			} else {
+				const errorData = await response.json().catch(() => ({}));
+				notify(
+					`Failed to ${status === 'on' ? 'enable' : 'disable'} SSH: ${errorData.error || response.statusText}`,
+					{ type: 'error' },
+				);
+			}
 		} catch (error) {
-			console.error('Error while enabling SSH', error);
-			alert('An error occurred while enabling SSH. Please try again.');
+			console.error('Error while changing SSH status:', error);
+			notify('An error occurred while changing SSH status', { type: 'error' });
 		}
 	};
 
