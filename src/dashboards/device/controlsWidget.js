@@ -8,7 +8,15 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import SpeakerNotesOffIcon from '@mui/icons-material/SpeakerNotesOff';
 import SpeakerNotesIcon from '@mui/icons-material/SpeakerNotes';
-import { Box, Button, CardActions, Typography } from '@mui/material';
+import {
+	Box,
+	Card,
+	CardContent,
+	CardActions,
+	Typography,
+	Button,
+	Grid,
+} from '@mui/material';
 import {
 	EditButton,
 	FunctionField,
@@ -269,7 +277,6 @@ const ControlsWidget = () => {
 			<Typography variant="h5" component="h2" gutterBottom>
 				{record['device name']}
 			</Typography>
-
 			<Box maxWidth="40em">
 				<p style={{ marginBottom: '5px' }}>
 					<b>Fleet: </b>
@@ -281,110 +288,156 @@ const ControlsWidget = () => {
 						<TextField source="app name" style={{ fontSize: '12pt' }} />
 					</ReferenceField>
 				</p>
-
 				<p style={{ margin: 0 }}>
 					<b>Status: </b>
 					<OnlineField source="api heartbeat state" />
 				</p>
 			</Box>
-
-			<CardActions sx={styles.actionCard}>
-				<EditButton
-					label="Edit"
-					size="medium"
-					variant="outlined"
-					color="secondary"
-				/>
-
-				<Button
-					variant="outlined"
-					size="medium"
-					onClick={() => invokeSupervisor(record, 'blink')}
-					startIcon={<LightModeIcon />}
-					disabled={isOffline}
-				>
-					Blink
-				</Button>
-				<Button
-					variant="outlined"
-					size="medium"
-					onClick={() => {
-						setConfirmationDialog({
-							title: 'Reboot Device',
-							content: 'Are you sure you want to reboot this device?',
-							onConfirm: () => invokeSupervisor(record, 'reboot'),
-						});
-					}}
-					startIcon={<RestartAltIcon />}
-					disabled={isOffline}
-				>
-					Reboot
-				</Button>
-				<Button
-					variant="outlined"
-					size="medium"
-					onClick={() => initiateLogDownload(record)}
-					startIcon={<DownloadIcon />}
-					disabled={isOffline}
-				>
-					Download Logs
-				</Button>
-				<Button
-					variant="outlined"
-					size="medium"
-					onClick={() => controlLogLevel(record, 'info')}
-					startIcon={<FeedIcon />}
-					disabled={isOffline}
-				>
-					Logs to info
-				</Button>
-				<Button
-					variant="outlined"
-					size="medium"
-					onClick={() => controlLogLevel(record, 'debug')}
-					startIcon={<FeedOutlinedIcon />}
-					disabled={isOffline}
-				>
-					Logs to debug
-				</Button>
-				<Button
-					variant="outlined"
-					size="medium"
-					onClick={() => uploadFiles(record)}
-					startIcon={<CloudUploadIcon />}
-					disabled={isOffline}
-				>
-					Upload Files
-				</Button>
-				<Button
-					variant="outlined"
-					size="medium"
-					onClick={() => downloadFiles(record)}
-					startIcon={<CloudDownloadIcon />}
-					disabled={isOffline}
-				>
-					Download Files
-				</Button>
-				<Button
-					variant="outlined"
-					size="medium"
-					onClick={() => controlSSH(record, 'on')}
-					startIcon={<SpeakerNotesIcon />}
-					disabled={isOffline}
-				>
-					Enable SSH
-				</Button>
-				<Button
-					variant="outlined"
-					size="medium"
-					onClick={() => controlSSH(record, 'off')}
-					startIcon={<SpeakerNotesOffIcon />}
-					disabled={isOffline}
-				>
-					Disable SSH
-				</Button>
-			</CardActions>
-
+			<Box sx={{ width: '100%' }}>
+				<Grid container spacing={2}>
+					{/* General Actions */}
+					<Grid item xs={12} md={6}>
+						<Card>
+							<CardContent>
+								<Typography variant="body1" fontWeight="bold">
+									General
+								</Typography>
+							</CardContent>
+							<CardActions>
+								<EditButton
+									label="Edit"
+									size="small"
+									variant="outlined"
+									color="secondary"
+								/>
+								<Button
+									variant="outlined"
+									size="small"
+									onClick={() => invokeSupervisor(record, 'blink')}
+									startIcon={<LightModeIcon />}
+									disabled={isOffline}
+								>
+									Blink
+								</Button>
+								<Button
+									variant="outlined"
+									size="small"
+									onClick={() => {
+										setConfirmationDialog({
+											title: 'Reboot Device',
+											content: 'Are you sure you want to reboot this device?',
+											onConfirm: () => invokeSupervisor(record, 'reboot'),
+										});
+									}}
+									startIcon={<RestartAltIcon />}
+									disabled={isOffline}
+								>
+									Reboot
+								</Button>
+							</CardActions>
+						</Card>
+					</Grid>
+					{/* Logs Actions */}
+					<Grid item xs={12} md={6}>
+						<Card>
+							<CardContent>
+								<Typography variant="body1" fontWeight="bold">
+									Logs
+								</Typography>
+							</CardContent>
+							<CardActions>
+								<Button
+									variant="outlined"
+									size="small"
+									onClick={() => initiateLogDownload(record)}
+									startIcon={<DownloadIcon />}
+									disabled={isOffline}
+								>
+									Download
+								</Button>
+								<Button
+									variant="outlined"
+									size="small"
+									onClick={() => controlLogLevel(record, 'info')}
+									startIcon={<FeedIcon />}
+									disabled={isOffline}
+								>
+									Set to info
+								</Button>
+								<Button
+									variant="outlined"
+									size="small"
+									onClick={() => controlLogLevel(record, 'debug')}
+									startIcon={<FeedOutlinedIcon />}
+									disabled={isOffline}
+								>
+									Set to debug
+								</Button>
+							</CardActions>
+						</Card>
+					</Grid>
+					{/* Files Actions */}
+					<Grid item xs={12} md={6}>
+						<Card>
+							<CardContent>
+								<Typography variant="body1" fontWeight="bold">
+									Files
+								</Typography>
+							</CardContent>
+							<CardActions>
+								<Button
+									variant="outlined"
+									size="small"
+									onClick={() => uploadFiles(record)}
+									startIcon={<CloudUploadIcon />}
+									disabled={isOffline}
+								>
+									Upload Files
+								</Button>
+								<Button
+									variant="outlined"
+									size="small"
+									onClick={() => downloadFiles(record)}
+									startIcon={<CloudDownloadIcon />}
+									disabled={isOffline}
+								>
+									Download Files
+								</Button>
+							</CardActions>
+						</Card>
+					</Grid>
+					{/* SSH Actions */}
+					<Grid item xs={12} md={6}>
+						<Card>
+							<CardContent>
+								<Typography variant="body1" fontWeight="bold">
+									SSH
+								</Typography>
+							</CardContent>
+							<CardActions>
+								<Button
+									variant="outlined"
+									size="small"
+									onClick={() => controlSSH(record, 'on')}
+									startIcon={<SpeakerNotesIcon />}
+									disabled={isOffline}
+								>
+									Enable SSH
+								</Button>
+								<Button
+									variant="outlined"
+									size="small"
+									onClick={() => controlSSH(record, 'off')}
+									startIcon={<SpeakerNotesOffIcon />}
+									disabled={isOffline}
+								>
+									Disable SSH
+								</Button>
+							</CardActions>
+						</Card>
+					</Grid>
+				</Grid>
+			</Box>
 			{!!confirmationDialog && (
 				<ConfirmationDialog
 					{...confirmationDialog}
