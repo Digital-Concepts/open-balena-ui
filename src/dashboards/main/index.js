@@ -3,32 +3,32 @@ import { Title } from 'react-admin';
 
 import Banner from './banner';
 import { FleetCards } from './fleets';
-import { DeviceCards } from './devices';
+import { DeviceStats } from './devices';
 
 const styles = {
   flex: { flex: '1', display: 'flex', flexDirection: 'row' },
-  leftCol: { flex: '1', marginRight: '0.5em', display: 'flex', flexDirection: 'column' },
+  leftCol: { flex: '2', marginRight: '0.5em', display: 'flex', flexDirection: 'column' },
   rightCol: { flex: '1', marginLeft: '0.5em', display: 'flex', flexDirection: 'column' },
 };
 
 const Dashboard = () => {
   return (
-    <>
-      <Title title='Dashboard' />
+		<>
+			<Title title="Dashboard" />
 
-      <Banner />
+			<Banner />
 
-      <div style={styles.flex}>
-        <div style={styles.leftCol}>
-          <FleetCards />
-        </div>
+			<div style={styles.flex}>
+				<div style={styles.leftCol}>
+					<FleetCards />
+				</div>
 
-        <div style={styles.rightCol}>
-          <DeviceCards />
-        </div>
-      </div>
-    </>
-  );
+				<div style={styles.rightCol}>
+					<DeviceStats />
+				</div>
+			</div>
+		</>
+	);
 };
 
 export default Dashboard;
