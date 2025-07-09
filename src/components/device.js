@@ -130,7 +130,7 @@ export const ReleaseField = (props) => {
   );
 };
 
-const deviceFilters = [<SearchInput source='#uuid,device name,note,status@ilike' alwaysOn />];
+const deviceFilters = [<SearchInput source='device name,note,status@ilike' alwaysOn />];
 
 const CustomBulkActionButtons = (props) => {
   const { selectedIds } = useListContext();
@@ -153,7 +153,7 @@ export const DeviceList = (props) => {
   return (
     <List {...props} filters={deviceFilters} pagination={<ExtendedPagination />}>
       <Datagrid rowClick={false} bulkActionButtons={<CustomBulkActionButtons />} size='medium'>
-        <ReferenceField label='Name' source='id' reference='device' target='id' link='show'>
+        <ReferenceField label='Name' source='id' reference='device' target='id' link='show' sortBy='device name'>
           <TextField source='device name' />
         </ReferenceField>
 
