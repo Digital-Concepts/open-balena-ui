@@ -273,22 +273,24 @@ const ControlsWidget = () => {
 	const updateSupervisor = async (device) => {
 		const session = authProvider.getSession();
 		try {
-			const response = await fetch('/download-files', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					Authorization: `Bearer ${session.jwt}`,
+			const response = await fetch("/update-supervisor", {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${session.jwt}`,
+					},
+					body: JSON.stringify({
+						uuid: device.uuid,
+					}),
 				},
-				body: JSON.stringify({
-					uuid: device.uuid,
-				}),
-			});
+			);
 			if (response.ok) {
 				const data = await response.json();
 				notify(
 					`Update supervisor command sent successfully: ${data.lastLine || ''}`,
 					{ type: 'success' },
 				);
+
 				console.log(data.output);
 			} else {
 				const errorData = await response.json().catch(() => ({}));

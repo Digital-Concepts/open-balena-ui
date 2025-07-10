@@ -373,5 +373,58 @@ app.post('/download-files', async (req, res) => {
 	}
 });
 
+app.post('/update-supervisor', async (req, res) => {
+	let tunnelProcess;
+	let sessionDir;
+	try {
+		const { uuid } = req.body;
+		const token = req.headers.authorization.split('Bearer ')[1];
+		jwt.verify(token, process.env.OPEN_BALENA_JWT_SECRET);
+
+		sessionDir = await createSessionDir(uuid);
+		await balenaLogin(token, sessionDir);
+		const { tunnelProcess: tp, tunnelPort } = await openTunnel(
+			uuid,
+			'22222:127.0.0.1',
+			sessionDir,
+		);
+		tunnelProcess = tp;
+
+		const command = `ssh -i /certs/tunnelKey/tunnelKey -p ${tunnelPort} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@127.0.0.1 "/usr/bin/update-balena-supervisor"`;
+
+		const output = await new Promise((resolve, reject) => {
+			exec(command, (error, stdout, stderr) => {
+				if (error) {
+					console.error(`SSH error: ${error}`);
+					reject(stderr || error.message);
+				} else {
+					console.log('Update supervisor command sent');
+					resolve(stdout || stderr);
+				}
+			});
+		});
+
+		cleanupTunnelAndSession(tunnelProcess, sessionDir);
+		console.log('Client disconnected');
+		const lines = output.trim().split('\n');
+		const lastLine = lines[lines.length - 1];
+		res.json({
+			success: true,
+			message: 'Update supervisor command sent',
+			output,
+			lastLine,
+		});
+	} catch (error) {
+		cleanupTunnelAndSession(tunnelProcess, sessionDir);
+		console.error('Error during Supervisor update:', error);
+		res
+			.status(500)
+			.json({
+				error: 'An error occurred while updating Supervisor',
+				details: error,
+			});
+	}
+});
+
 app.listen(PORT, HOST);
 console.log(`Running open-balena-ui on http://${HOST}:${PORT}`);
