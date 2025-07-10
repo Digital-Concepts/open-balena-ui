@@ -273,19 +273,16 @@ const ControlsWidget = () => {
 	const updateSupervisor = async (device) => {
 		const session = authProvider.getSession();
 		try {
-			const response = await fetch(
-				`${environment.REACT_APP_OPEN_BALENA_API_URL}/update-supervisor`,
-				{
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: `Bearer ${session.jwt}`,
-					},
-					body: JSON.stringify({
-						uuid: device.uuid,
-					}),
+			const response = await fetch('/download-files', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${session.jwt}`,
 				},
-			);
+				body: JSON.stringify({
+					uuid: device.uuid,
+				}),
+			});
 			if (response.ok) {
 				const data = await response.json();
 				notify(
