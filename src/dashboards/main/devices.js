@@ -51,7 +51,6 @@ export const DeviceStats = () => {
 					);
 				const lastRelease = fleetReleases[0];
 				const lastReleaseVersion = lastRelease?.contract?.version || 'N/A';
-				console.log('Fleet:', fleet['app name'], 'Releases:', fleetReleases[0]);
 				return {
 					fleetName: fleet['app name'],
 					deviceCount: fleetDevices.length,

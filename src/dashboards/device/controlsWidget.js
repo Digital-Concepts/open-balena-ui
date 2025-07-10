@@ -17,6 +17,7 @@ import {
 	Typography,
 	Button,
 	Grid,
+	ButtonGroup,
 } from '@mui/material';
 import {
 	EditButton,
@@ -272,20 +273,26 @@ const ControlsWidget = () => {
 	const updateSupervisor = async (device) => {
 		const session = authProvider.getSession();
 		try {
-			const response = await fetch('/update-supervisor', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					Authorization: `Bearer ${session.jwt}`,
+			const response = await fetch(
+				`${environment.REACT_APP_OPEN_BALENA_API_URL}/update-supervisor`,
+				{
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${session.jwt}`,
+					},
+					body: JSON.stringify({
+						uuid: device.uuid,
+					}),
 				},
-				body: JSON.stringify({
-					uuid: device.uuid,
-				}),
-			});
+			);
 			if (response.ok) {
-				notify(`Update supervisor command sent successfully`, {
-					type: 'success',
-				});
+				const data = await response.json();
+				notify(
+					`Update supervisor command sent successfully: ${data.lastLine || ''}`,
+					{ type: 'success' },
+				);
+				console.log(data.output);
 			} else {
 				const errorData = await response.json().catch(() => ({}));
 				notify(
@@ -294,7 +301,6 @@ const ControlsWidget = () => {
 				);
 			}
 		} catch (error) {
-			console.error('Error while updating supervisor:', error);
 			notify('An error occurred while updating supervisor', { type: 'error' });
 		}
 	};
@@ -335,45 +341,58 @@ const ControlsWidget = () => {
 								</Typography>
 							</CardContent>
 							<CardActions>
-								<EditButton
-									label="Edit"
-									size="small"
-									variant="outlined"
-									color="secondary"
-								/>
-								<Button
-									variant="outlined"
-									size="small"
-									onClick={() => invokeSupervisor(record, 'blink')}
-									startIcon={<LightModeIcon />}
-									disabled={isOffline}
-								>
-									Blink
-								</Button>
-								<Button
-									variant="outlined"
-									size="small"
-									onClick={() => {
-										setConfirmationDialog({
-											title: 'Reboot Device',
-											content: 'Are you sure you want to reboot this device?',
-											onConfirm: () => invokeSupervisor(record, 'reboot'),
-										});
-									}}
-									startIcon={<RestartAltIcon />}
-									disabled={isOffline}
-								>
-									Reboot
-								</Button>
-								<Button
-									variant="outlined"
-									size="small"
-									onClick={() => updateSupervisor(record)}
-									startIcon={<UpdateIcon />}
-									disabled={isOffline}
-								>
-									Update Supervisor
-								</Button>
+								<Grid container direction="column" spacing={2}>
+									<Grid item>
+										{/* Row 1 */}
+										<Box display="flex" gap={1}>
+											<EditButton
+												label="Edit"
+												size="small"
+												variant="outlined"
+												color="secondary"
+											/>
+											<Button
+												variant="outlined"
+												size="small"
+												onClick={() => {
+													setConfirmationDialog({
+														title: 'Reboot Device',
+														content:
+															'Are you sure you want to reboot this device?',
+														onConfirm: () => invokeSupervisor(record, 'reboot'),
+													});
+												}}
+												startIcon={<RestartAltIcon />}
+												disabled={isOffline}
+											>
+												Reboot
+											</Button>
+										</Box>
+									</Grid>
+									<Grid item>
+										{/* Row 2 */}
+										<Box display="flex" gap={1}>
+											<Button
+												variant="outlined"
+												size="small"
+												onClick={() => invokeSupervisor(record, 'blink')}
+												startIcon={<LightModeIcon />}
+												disabled={isOffline}
+											>
+												Blink
+											</Button>
+											<Button
+												variant="outlined"
+												size="small"
+												onClick={() => updateSupervisor(record)}
+												startIcon={<UpdateIcon />}
+												disabled={isOffline}
+											>
+												Update Supervisor
+											</Button>
+										</Box>
+									</Grid>
+								</Grid>
 							</CardActions>
 						</Card>
 					</Grid>
@@ -386,33 +405,45 @@ const ControlsWidget = () => {
 								</Typography>
 							</CardContent>
 							<CardActions>
-								<Button
-									variant="outlined"
-									size="small"
-									onClick={() => initiateLogDownload(record)}
-									startIcon={<DownloadIcon />}
-									disabled={isOffline}
-								>
-									Download
-								</Button>
-								<Button
-									variant="outlined"
-									size="small"
-									onClick={() => controlLogLevel(record, 'info')}
-									startIcon={<FeedIcon />}
-									disabled={isOffline}
-								>
-									Set to info
-								</Button>
-								<Button
-									variant="outlined"
-									size="small"
-									onClick={() => controlLogLevel(record, 'debug')}
-									startIcon={<FeedOutlinedIcon />}
-									disabled={isOffline}
-								>
-									Set to debug
-								</Button>
+								<Grid container direction="column" spacing={2}>
+									<Grid item>
+										{/* Row 1 */}
+										<Box display="flex" gap={1}>
+											<Button
+												variant="outlined"
+												size="small"
+												onClick={() => controlLogLevel(record, 'info')}
+												startIcon={<FeedIcon />}
+												disabled={isOffline}
+											>
+												Set to info
+											</Button>
+											<Button
+												variant="outlined"
+												size="small"
+												onClick={() => controlLogLevel(record, 'debug')}
+												startIcon={<FeedOutlinedIcon />}
+												disabled={isOffline}
+											>
+												Set to debug
+											</Button>
+										</Box>
+									</Grid>
+									<Grid item>
+										{/* Row 2 */}
+										<Box display="flex" gap={1}>
+											<Button
+												variant="outlined"
+												size="small"
+												onClick={() => initiateLogDownload(record)}
+												startIcon={<DownloadIcon />}
+												disabled={isOffline}
+											>
+												Download
+											</Button>
+										</Box>
+									</Grid>
+								</Grid>
 							</CardActions>
 						</Card>
 					</Grid>
