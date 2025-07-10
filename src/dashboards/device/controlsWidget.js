@@ -8,6 +8,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import SpeakerNotesOffIcon from '@mui/icons-material/SpeakerNotesOff';
 import SpeakerNotesIcon from '@mui/icons-material/SpeakerNotes';
+import UpdateIcon from '@mui/icons-material/Update';
 import {
 	Box,
 	Card,
@@ -268,6 +269,36 @@ const ControlsWidget = () => {
 		}
 	};
 
+	const updateSupervisor = async (device) => {
+		const session = authProvider.getSession();
+		try {
+			const response = await fetch('/update-supervisor', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${session.jwt}`,
+				},
+				body: JSON.stringify({
+					uuid: device.uuid,
+				}),
+			});
+			if (response.ok) {
+				notify(`Update supervisor command sent successfully`, {
+					type: 'success',
+				});
+			} else {
+				const errorData = await response.json().catch(() => ({}));
+				notify(
+					`Failed to update supervisor: ${errorData.error || response.statusText}`,
+					{ type: 'error' },
+				);
+			}
+		} catch (error) {
+			console.error('Error while updating supervisor:', error);
+			notify('An error occurred while updating supervisor', { type: 'error' });
+		}
+	};
+
 	if (!record) return null;
 
 	const isOffline = record['api heartbeat state'] !== 'online';
@@ -333,6 +364,15 @@ const ControlsWidget = () => {
 									disabled={isOffline}
 								>
 									Reboot
+								</Button>
+								<Button
+									variant="outlined"
+									size="small"
+									onClick={() => updateSupervisor(record)}
+									startIcon={<UpdateIcon />}
+									disabled={isOffline}
+								>
+									Update Supervisor
 								</Button>
 							</CardActions>
 						</Card>
