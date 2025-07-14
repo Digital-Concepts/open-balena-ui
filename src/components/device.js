@@ -1,33 +1,57 @@
-import { Icon, Tooltip, useTheme } from '@mui/material';
-import { Done, Warning, WarningAmber, PushPin } from '@mui/icons-material';
+import {
+	Icon,
+	Tooltip,
+	useTheme,
+	Accordion,
+	AccordionSummary,
+	AccordionDetails,
+	Typography,
+	Badge,
+	Box,
+	Button,
+} from '@mui/material';
+import {
+	Done,
+	Warning,
+	WarningAmber,
+	PushPin,
+	ExpandMore,
+	ViewList,
+	ViewModule,
+} from '@mui/icons-material';
 import dateFormat from 'dateformat';
 import * as React from 'react';
 import {
-  Create,
-  Datagrid,
-  Edit,
-  EditButton,
-  FormDataConsumer,
-  FunctionField,
-  List,
-  Pagination,
-  ReferenceField,
-  ReferenceInput,
-  SearchInput,
-  SelectInput,
-  ShowButton,
-  SimpleForm,
-  TextField,
-  TextInput,
-  Toolbar,
-  required,
-  useGetOne,
-  useRedirect,
-  useListContext,
-  WithRecord,
+	Create,
+	Datagrid,
+	Edit,
+	EditButton,
+	FormDataConsumer,
+	FunctionField,
+	List,
+	Pagination,
+	ReferenceField,
+	ReferenceInput,
+	SearchInput,
+	SelectInput,
+	ShowButton,
+	SimpleForm,
+	TextField,
+	TextInput,
+	Toolbar,
+	required,
+	useGetOne,
+	useRedirect,
+	useListContext,
+	WithRecord,
+	useGetList,
 } from 'react-admin';
 import { v4 as uuidv4 } from 'uuid';
-import { useCreateDevice, useModifyDevice, useSetServicesForNewDevice } from '../lib/device';
+import {
+	useCreateDevice,
+	useModifyDevice,
+	useSetServicesForNewDevice,
+} from '../lib/device';
 import CopyChip from '../ui/CopyChip';
 import DeleteDeviceButton from '../ui/DeleteDeviceButton';
 import DeviceConnectButton from '../ui/DeviceConnectButton';
@@ -69,65 +93,96 @@ export const OnlineField = (props) => {
   );
 };
 
+const ReleaseFieldDisplay = ({ record, source, theme }) => {
+	const { data: fleet, isPending, error, } = useGetOne('application', { id: record['belongs to-application'] });
+
+	if (isPending) { return <p>Loading</p>; }
+	if (error) { return <p>ERROR</p>; }
+
+	const shouldBeRunningRelease = record[isPinnedOnRelease] || fleet['should be running-release'];
+	const isUpToDate = !!( record[source] && record[source] === shouldBeRunningRelease );
+	const isOnline = record['api heartbeat state'] === 'online';
+	const isPinned = !!record[isPinnedOnRelease];
+
+	return (
+		<div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+			<div style={{ width: '24px', display: 'flex', alignItems: 'center' }}>
+				{isPinned && (
+					<Tooltip
+						placement="top"
+						arrow={true}
+						title="Device pinned to specific release"
+					>
+						<PushPin
+							sx={{ fontSize: '1.2rem', color: theme.palette.primary.main }}
+						/>
+					</Tooltip>
+				)}
+			</div>
+
+			<ReferenceField
+				label="Current Release"
+				source="is running-release"
+				reference="release"
+				target="id"
+				record={record}
+			>
+				<SemVerChip />
+			</ReferenceField>
+
+			{record[source] && (
+				<Tooltip
+					placement="top"
+					arrow={true}
+					title={
+						<>
+							Target Release:
+							<ReferenceField
+								reference="release"
+								target="id"
+								source="should be running-release"
+								record={{
+									...record,
+									'should be running-release': shouldBeRunningRelease,
+								}}
+							>
+								<SemVerTextField
+									style={{ marginLeft: '3px', fontSize: '0.7rem' }}
+								/>
+							</ReferenceField>
+						</>
+					}
+				>
+					<div style={{ display: 'flex', alignItems: 'center' }}>
+						{isUpToDate ? (
+							<Done sx={{ fontSize: '1.2rem' }} />
+						) : isOnline ? (
+							<UseAnimations
+								animation={arrowDown}
+								size={24}
+								sx={{ fontSize: '1.2rem' }}
+							/>
+						) : (
+							<WarningAmber sx={{ fontSize: '1.2rem' }} />
+						)}
+					</div>
+				</Tooltip>
+			)}
+		</div>
+	);
+};
+
 export const ReleaseField = (props) => {
-  const theme = useTheme();
+	const theme = useTheme();
 
-  return (
-    <FunctionField
-      {...props}
-      render={(record, source) => {
-        const { data: fleet, isPending, error } = useGetOne('application', { id: record['belongs to-application'] });
-        if (isPending) { return <p>Loading</p>; }
-        if (error) { return <p>ERROR</p>; }
-
-        record['should be running-release'] = record[isPinnedOnRelease] || fleet['should be running-release'];
-
-        const isUpToDate = !!(record[source] && record[source] === record['should be running-release']);
-        const isOnline = record['api heartbeat state'] === 'online';
-        const isPinned = !!record[isPinnedOnRelease];
-
-        return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <div style={{ width: '24px', display: 'flex', alignItems: 'center' }}>
-              {isPinned && (
-                <Tooltip placement="top" arrow={true} title="Device pinned to specific release">
-                  <PushPin sx={{ fontSize: '1.2rem', color: theme.palette.primary.main }} />
-                </Tooltip>
-              )}
-            </div>
-            
-            <ReferenceField label='Current Release' source='is running-release' reference='release' target='id'>
-              <SemVerChip />
-            </ReferenceField>
-
-            {record[source] && (
-              <Tooltip
-                placement='top'
-                arrow={true}
-                title={
-                  <>
-                    Target Release:
-                    <ReferenceField reference='release' target='id' source='should be running-release'>
-                      <SemVerTextField style={{marginLeft: '3px', fontSize: '0.7rem'}} />
-                    </ReferenceField>
-                  </>
-                }
-              >
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                  {isUpToDate ? 
-                    <Done sx={{ fontSize: '1.2rem' }} /> :
-                    isOnline ? 
-                      <UseAnimations animation={arrowDown} size={24} sx={{ fontSize: '1.2rem' }} /> :
-                      <WarningAmber sx={{ fontSize: '1.2rem' }} />
-                  }
-                </div>
-              </Tooltip>
-            )}
-          </div>
-        );
-      }}
-    />
-  );
+	return (
+		<FunctionField
+			{...props}
+			render={(record, source) => (
+				<ReleaseFieldDisplay record={record} source={source} theme={theme} />
+			)}
+		/>
+	);
 };
 
 const deviceFilters = [<SearchInput source='device name,note,status@ilike' alwaysOn />];
@@ -143,19 +198,79 @@ const CustomBulkActionButtons = (props) => {
   );
 };
 
-const ExtendedPagination = (
-  { rowsPerPageOptions = [5, 10, 25, 50, 100, 250], ...rest }
-) => (
-  <Pagination rowsPerPageOptions={rowsPerPageOptions} {...rest} />
-);
+const ExtendedPagination = ({ rowsPerPageOptions = [25, 50, 100, 250], ...rest }) => <Pagination rowsPerPageOptions={rowsPerPageOptions} {...rest} />;
 
 export const DeviceList = (props) => {
-  return (
-    <List {...props} filters={deviceFilters} pagination={<ExtendedPagination />}>
-      <Datagrid rowClick={false} bulkActionButtons={<CustomBulkActionButtons />} size='medium'>
-        <ReferenceField label='Name' source='id' reference='device' target='id' link='show' sortBy='device name'>
-          <TextField source='device name' />
-        </ReferenceField>
+	const [groupedView, setGroupedView] = React.useState(false);
+	const { title, ...listProps } = props;
+
+	if (groupedView) {
+		return (
+			<div>
+				<Button startIcon={<ViewList />} onClick={() => setGroupedView(false)} sx={{ mb: 2 }} >
+					Switch to List View
+				</Button>
+				<FleetGroupedDeviceList />
+			</div>
+		);
+	}
+
+	return (
+		<div>
+			<Button startIcon={<ViewModule />} onClick={() => setGroupedView(true)} sx={{ mb: 2 }} >
+				Group by Fleet
+			</Button>
+			<List {...listProps} title={title} filters={deviceFilters} pagination={<ExtendedPagination />} >
+				<Datagrid rowClick={false} bulkActionButtons={<CustomBulkActionButtons />} size="medium" >
+					<ReferenceField label="Name" source="id" reference="device" target="id" link="show" sortBy="device name">
+						<TextField source="device name" />
+					</ReferenceField>
+
+					<OnlineField label="Status" source="api heartbeat state" />
+
+					<FunctionField
+						label="VPN Status"
+						render={(record) => (
+							<Tooltip placement="top" arrow={true} title={
+									'Since ' + dateFormat(new Date(record['last vpn event'])) }>
+								{record['is connected to vpn'] ? 'Connected' : 'Disconnected'}
+							</Tooltip>
+						)}
+					/>
+					<ReleaseField label="Current Release" source="is running-release" />
+
+					<FunctionField label="Notes" render={(record) => record.note || ''} />
+
+					<ReferenceField label="Fleet" source="belongs to-application" reference="application" target="id" >
+						<TextField source="app name" />
+					</ReferenceField>
+
+					<Toolbar sx={{ background: 'none', padding: '0' }}>
+						<ShowButton variant="outlined" label="" size="small" />
+						<EditButton variant="outlined" label="" size="small" />
+						<WithRecord
+							render={(device) => (
+								<>
+									<DeviceServicesButton variant="outlined" size="small" device={device} />
+									<DeviceConnectButton variant="outlined" size="small" record={device} />
+								</>
+							)}
+						/>
+						<DeleteDeviceButton variant="outlined" size="small" style={{ marginRight: '0 !important' }} />
+					</Toolbar>
+				</Datagrid>
+			</List>
+		</div>
+	);
+};
+
+const FleetDeviceList = ({ fleetId, fleetName }) => {
+	return (
+		<List resource="device" filter={{ 'belongs to-application': fleetId }} pagination={<ExtendedPagination />} actions={null} title="">
+		<Datagrid rowClick={false} bulkActionButtons={<CustomBulkActionButtons />} size='medium'>
+        	<ReferenceField label='Name' source='id' reference='device' target='id' link='show' sortBy='device name'>
+					<TextField source="device name" />
+				</ReferenceField>
 
         <OnlineField label='Status' source='api heartbeat state' />
 
@@ -173,14 +288,7 @@ export const DeviceList = (props) => {
         />
         <ReleaseField label='Current Release' source='is running-release' />
 
-        <FunctionField
-            label='Notes'
-            render={(record) => record.note || ''}
-          />
-
-        <ReferenceField label='Fleet' source='belongs to-application' reference='application' target='id'>
-          <TextField source='app name' />
-        </ReferenceField>
+				<FunctionField label="Notes" render={(record) => record.note || ''} />
 
         <Toolbar sx={{ background: 'none', padding: '0' }}>
           <ShowButton variant='outlined' label='' size='small' />
@@ -196,6 +304,65 @@ export const DeviceList = (props) => {
       </Datagrid>
     </List>
   );
+};
+
+export const FleetGroupedDeviceList = (props) => {
+	const { data: fleets, isLoading: fleetsLoading } = useGetList('application', {
+		filter: { 'is of-class': 'fleet' },
+		sort: { field: 'app name', order: 'ASC' },
+		pagination: { page: 1, perPage: 1000 },
+	});
+
+	const { data: devices, isLoading: devicesLoading } = useGetList('device', {
+		sort: { field: 'device name', order: 'ASC' },
+		pagination: { page: 1, perPage: 1000 },
+	});
+
+	if (fleetsLoading || devicesLoading) {
+		return <div>Loading...</div>;
+	}
+
+	// Group devices by fleet
+	const devicesByFleet =
+		devices?.reduce((acc, device) => {
+			const fleetId = device['belongs to-application'];
+			if (!acc[fleetId]) {
+				acc[fleetId] = [];
+			}
+			acc[fleetId].push(device);
+			return acc;
+		}, {}) || {};
+
+	return (
+		<div>
+			<Box sx={{ width: '100%' }}>
+				{fleets?.map((fleet) => {
+					const fleetDevices = devicesByFleet[fleet.id] || [];
+
+					return (
+						<Accordion key={fleet.id} sx={{ mb: 1 }}>
+							<AccordionSummary
+								expandIcon={<ExpandMore />}
+								aria-controls={`fleet-${fleet.id}-content`}
+								id={`fleet-${fleet.id}-header`}
+							>
+								<Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+									<Typography variant="h6">{fleet['app name']}</Typography>
+									<Badge badgeContent={fleetDevices.length} color="primary" />
+								</Box>
+							</AccordionSummary>
+							<AccordionDetails>
+								<FleetDeviceList
+									fleetId={fleet.id}
+									fleetName={fleet['app name']}
+								/>
+							</AccordionDetails>
+						</Accordion>
+					);
+				})}
+			</Box>
+		</div>
+	);
 };
 
 export const DeviceCreate = (props) => {
@@ -361,9 +528,10 @@ export const DeviceEdit = () => {
 };
 
 const device = {
-  list: DeviceList,
-  create: DeviceCreate,
-  edit: DeviceEdit,
+	list: DeviceList,
+	create: DeviceCreate,
+	edit: DeviceEdit,
+	fleetGrouped: FleetGroupedDeviceList,
 };
 
 export default device;
