@@ -9,6 +9,10 @@ import {
 	Badge,
 	Box,
 	Button,
+	FormControl,
+	InputLabel,
+	Select,
+	MenuItem,
 } from '@mui/material';
 import {
 	Done,
@@ -78,11 +82,7 @@ export const OnlineField = (props) => {
         const isOnline = record[source] === 'online';
 
         return (
-          <Tooltip
-            placement='top'
-            arrow={true}
-            title={'Since ' + dateFormat(new Date(record['last connectivity event']))}
-          >
+          <Tooltip placement='top' arrow={true} title={'Since ' + dateFormat(new Date(record['last connectivity event']))} >
             <strong style={{ color: isOnline ? theme.palette.success.light : theme.palette.error.light }}>
               {isOnline ? 'Online' : 'Offline'}
             </strong>
@@ -202,7 +202,24 @@ const ExtendedPagination = ({ rowsPerPageOptions = [25, 50, 100, 250], ...rest }
 
 export const DeviceList = (props) => {
 	const [groupedView, setGroupedView] = React.useState(false);
+	const [selectedFleet, setSelectedFleet] = React.useState('');
 	const { title, ...listProps } = props;
+
+	const { data: fleets, isLoading: fleetsLoading } = useGetList('application', {
+		filter: { 'is of-class': 'fleet' },
+		sort: { field: 'app name', order: 'ASC' },
+		pagination: { page: 1, perPage: 1000 },
+	});
+
+	const deviceFilter = selectedFleet ? { 'belongs to-application': selectedFleet } : {};
+
+	const handleFleetChange = (event) => {
+		setSelectedFleet(event.target.value);
+	};
+
+	const clearFleetFilter = () => {
+		setSelectedFleet('');
+	};
 
 	if (groupedView) {
 		return (
@@ -217,10 +234,52 @@ export const DeviceList = (props) => {
 
 	return (
 		<div>
-			<Button startIcon={<ViewModule />} onClick={() => setGroupedView(true)} sx={{ mb: 2 }} >
-				Group by Fleet
-			</Button>
-			<List {...listProps} title={title} filters={deviceFilters} pagination={<ExtendedPagination />} >
+			<Box sx={{ mb: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
+				<Button startIcon={<ViewModule />} onClick={() => setGroupedView(true)} >
+					Group by Fleet
+				</Button>
+				<FormControl size="small" sx={{ minWidth: 200 }}>
+					<Select
+						labelId="fleet-select-label"
+						id="fleet-select"
+						value={selectedFleet}
+						label="Filter by Fleet"
+						onChange={handleFleetChange}
+						displayEmpty
+						sx={{backgroundColor: '#2A506F', 
+							color: 'white',
+							'& .MuiOutlinedInput-notchedOutline': {borderColor: '#2A506F',},
+							'& .MuiSelect-icon': {color: 'white',},
+						}}
+						MenuProps={{
+							PaperProps: {
+								sx: {backgroundColor: '#2A506F', 
+									'& .MuiMenuItem-root': {
+										color: 'white', '&:hover': { backgroundColor: '#34607F', },
+										'&.Mui-selected': { backgroundColor: '#34607F',  '&:hover': {backgroundColor: '#3E708F',}, },
+									}},
+							},
+						}}
+					>
+						<MenuItem value="">
+							<b>All Fleets</b>
+						</MenuItem>
+						{fleets?.map((fleet) => (
+							<MenuItem key={fleet.id} value={fleet.id}>
+								{fleet['app name']}
+							</MenuItem>
+						))}
+					</Select>
+				</FormControl>
+				
+				{selectedFleet && (
+					<Button variant="outlined" size="small" onClick={clearFleetFilter} sx={{ height: 'fit-content' }}>
+						Clear Filter
+					</Button>
+				)}
+			</Box>
+
+			<List {...listProps} title={title} filters={deviceFilters} filter={deviceFilter} pagination={<ExtendedPagination />} >
 				<Datagrid rowClick={false} bulkActionButtons={<CustomBulkActionButtons />} size="medium" >
 					<ReferenceField label="Name" source="id" reference="device" target="id" link="show" sortBy="device name">
 						<TextField source="device name" />
@@ -264,9 +323,9 @@ export const DeviceList = (props) => {
 	);
 };
 
-const FleetDeviceList = ({ fleetId, fleetName }) => {
+const FleetDeviceList = ({ fleetId }) => {
 	return (
-		<List resource="device" filter={{ 'belongs to-application': fleetId }} pagination={<ExtendedPagination />} actions={null} title="">
+		<List resource="device" filter={{ 'belongs to-application': fleetId }} pagination={<ExtendedPagination />} actions={null}>
 		<Datagrid rowClick={false} bulkActionButtons={<CustomBulkActionButtons />} size='medium'>
         	<ReferenceField label='Name' source='id' reference='device' target='id' link='show' sortBy='device name'>
 					<TextField source="device name" />
@@ -288,7 +347,7 @@ const FleetDeviceList = ({ fleetId, fleetName }) => {
         />
         <ReleaseField label='Current Release' source='is running-release' />
 
-				<FunctionField label="Notes" render={(record) => record.note || ''} />
+		<FunctionField label="Notes" render={(record) => record.note || ''} />
 
         <Toolbar sx={{ background: 'none', padding: '0' }}>
           <ShowButton variant='outlined' label='' size='small' />
@@ -338,14 +397,10 @@ export const FleetGroupedDeviceList = (props) => {
 			<Box sx={{ width: '100%' }}>
 				{fleets?.map((fleet) => {
 					const fleetDevices = devicesByFleet[fleet.id] || [];
-
 					return (
+						// Wrap each fleet in an dropdown
 						<Accordion key={fleet.id} sx={{ mb: 1 }}>
-							<AccordionSummary
-								expandIcon={<ExpandMore />}
-								aria-controls={`fleet-${fleet.id}-content`}
-								id={`fleet-${fleet.id}-header`}
-							>
+							<AccordionSummary expandIcon={<ExpandMore />} aria-controls={`fleet-${fleet.id}-content`} id={`fleet-${fleet.id}-header`} >
 								<Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
 									<Typography variant="h6">{fleet['app name']}</Typography>
 									<Badge badgeContent={fleetDevices.length} color="primary" />
@@ -379,14 +434,7 @@ export const DeviceCreate = (props) => {
     <Create title='Create Device' transform={createDevice} mutationOptions={{ onSuccess }}>
       <SimpleForm>
         <Row>
-          <TextInput
-            label='UUID'
-            source='uuid'
-            defaultValue={uuidv4().replace(/-/g, '').toLowerCase()}
-            validate={required()}
-            size='large'
-            readOnly={true}
-          />
+          <TextInput label='UUID' source='uuid' defaultValue={uuidv4().replace(/-/g, '').toLowerCase()} validate={required()} size='large' readOnly={true} />
 
           <TextInput label='Device Name' source='device name' validate={required()} size='large' />
         </Row>
@@ -405,13 +453,7 @@ export const DeviceCreate = (props) => {
             <SelectInput optionText='slug' optionValue='id' validate={required()} size='large' />
           </ReferenceInput>
 
-          <ReferenceInput
-            label='Managed by Device'
-            source='is managed by-device'
-            reference='device'
-            target='id'
-            allowEmpty
-          >
+          <ReferenceInput label='Managed by Device' source='is managed by-device' reference='device' target='id' allowEmpty >
             <SelectInput optionText='device name' optionValue='id' size='large' />
           </ReferenceInput>
         </Row>
