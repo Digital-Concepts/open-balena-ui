@@ -202,7 +202,9 @@ const ExtendedPagination = ({ rowsPerPageOptions = [25, 50, 100, 250], ...rest }
 
 export const DeviceList = (props) => {
 	const [groupedView, setGroupedView] = React.useState(false);
-	const [selectedFleet, setSelectedFleet] = React.useState('');
+	const [selectedFleet, setSelectedFleet] = React.useState(() => {
+		return localStorage.getItem('selectedFleet') || '';
+	});
 	const { title, ...listProps } = props;
 
 	const { data: fleets, isLoading: fleetsLoading } = useGetList('application', {
@@ -214,11 +216,18 @@ export const DeviceList = (props) => {
 	const deviceFilter = selectedFleet ? { 'belongs to-application': selectedFleet } : {};
 
 	const handleFleetChange = (event) => {
-		setSelectedFleet(event.target.value);
+		const fleetId = event.target.value;
+		setSelectedFleet(fleetId);
+		if (fleetId) {
+			localStorage.setItem('selectedFleet', fleetId);
+		} else {
+			localStorage.removeItem('selectedFleet');
+		}
 	};
 
 	const clearFleetFilter = () => {
 		setSelectedFleet('');
+		localStorage.removeItem('selectedFleet');
 	};
 
 	if (groupedView) {
