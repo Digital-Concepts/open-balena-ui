@@ -103,7 +103,6 @@ const ReleaseFieldDisplay = ({ record, source, theme }) => {
 	const isUpToDate = !!( record[source] && record[source] === shouldBeRunningRelease );
 	const isOnline = record['api heartbeat state'] === 'online';
 	const isPinned = !!record[isPinnedOnRelease];
-	console.log(record);
 	return (
 		<div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
 			<div style={{ width: '24px', display: 'flex', alignItems: 'center' }}>
@@ -185,7 +184,7 @@ export const ReleaseField = (props) => {
 	);
 };
 
-const deviceFilters = [<SearchInput source='device name,note,status@ilike' alwaysOn />];
+const deviceFilters = [<SearchInput source='#device name,note,ip address,status@ilike' alwaysOn />];
 
 const CustomBulkActionButtons = (props) => {
   const { selectedIds } = useListContext();
@@ -198,7 +197,7 @@ const CustomBulkActionButtons = (props) => {
   );
 };
 
-const ExtendedPagination = ({ rowsPerPageOptions = [25, 50, 100, 250], ...rest }) => <Pagination rowsPerPageOptions={rowsPerPageOptions} {...rest} />;
+const ExtendedPagination = ({ rowsPerPageOptions = [10, 25, 50, 100, 250], ...rest }) => <Pagination rowsPerPageOptions={rowsPerPageOptions} {...rest} />;
 
 export const DeviceList = (props) => {
 	const [groupedView, setGroupedView] = React.useState(false);
