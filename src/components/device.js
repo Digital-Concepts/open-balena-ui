@@ -103,7 +103,7 @@ const ReleaseFieldDisplay = ({ record, source, theme }) => {
 	const isUpToDate = !!( record[source] && record[source] === shouldBeRunningRelease );
 	const isOnline = record['api heartbeat state'] === 'online';
 	const isPinned = !!record[isPinnedOnRelease];
-
+	console.log(record);
 	return (
 		<div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
 			<div style={{ width: '24px', display: 'flex', alignItems: 'center' }}>
@@ -305,6 +305,18 @@ export const DeviceList = (props) => {
 							</Tooltip>
 						)}
 					/>
+					
+					<FunctionField 
+						label="IP Address" 
+						render={(record) => {
+							const ipAddress = record['ip address'] || '';
+							// only ipv4 addresses
+							const ipv4Regex = /\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/g;
+							const ipv4Addresses = ipAddress.match(ipv4Regex) || [];
+							return ipv4Addresses.join(', ');
+						}} 
+					/>
+
 					<ReleaseField label="Current Release" source="is running-release" />
 
 					<FunctionField label="Notes" render={(record) => record.note || ''} />
@@ -354,6 +366,18 @@ const FleetDeviceList = ({ fleetId }) => {
             </Tooltip>
             )}
         />
+
+		<FunctionField 
+			label="IP Address" 
+			render={(record) => {
+				const ipAddress = record['ip address'] || '';
+				// only ipv4 addresses
+				const ipv4Regex = /\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/g;
+				const ipv4Addresses = ipAddress.match(ipv4Regex) || [];
+				return ipv4Addresses.join(', ');
+			}} 
+		/>
+
         <ReleaseField label='Current Release' source='is running-release' />
 
 		<FunctionField label="Notes" render={(record) => record.note || ''} />
