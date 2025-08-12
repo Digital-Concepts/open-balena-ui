@@ -19,14 +19,41 @@ export const DeleteReleaseButton = ({ selectedIds, context, ...props }) => {
   const record = useRecordContext();
 
   const handleSubmit = async () => {
-    if (selectedIds) {
-      await deleteReleaseBulk(selectedIds);
-    } else {
-      await deleteRelease(record);
+    try {
+      const idsToDelete = selectedIds || [record.id];
+      
+      for (const releaseId of idsToDelete) {
+        // Check for image install records
+        const imageInstallResult = await context.getList('image install', {
+          pagination: { page: 1, perPage: 1000 },
+          sort: { field: 'id', order: 'ASC' },
+          filter: { 'is provided by-release': releaseId },
+        });
+        
+        // If there are image installs, delete them first
+        if (imageInstallResult.data.length > 0) {
+          const imageInstallIds = imageInstallResult.data.map(install => install.id);
+          await context.deleteMany('image install', { ids: imageInstallIds });
+          console.log(`Deleted ${imageInstallResult.data.length} image install records for release ${releaseId}`);
+        }
+      }
+      
+      // Now proceed with original deletion logic
+      if (selectedIds) {
+        await deleteReleaseBulk(selectedIds);
+      } else {
+        await deleteRelease(record);
+      }
+      
+      setOpen(false);
+      notify('Release(s) and associated records successfully deleted', { type: 'success' });
+      redirect(props.redirect);
+      
+    } catch (error) {
+      setOpen(false);
+      notify(`Failed to delete release: ${error.message}`, { type: 'error' });
+      console.error('Delete release error:', error);
     }
-    setOpen(false);
-    notify('Release(s) successfully deleted', { type: 'success' });
-    redirect(props.redirect);
   };
 
   React.useEffect(() => {
@@ -76,7 +103,7 @@ export const DeleteReleaseButton = ({ selectedIds, context, ...props }) => {
       <ConfirmationDialog
         open={open}
         title='Delete Release(s)'
-        content='Note: this action will be irreversible'
+        content='This will delete the release and any associated installation records. This action cannot be undone.'
         onConfirm={handleSubmit}
         onClose={() => setOpen(false)}
       />

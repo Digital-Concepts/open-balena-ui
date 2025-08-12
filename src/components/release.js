@@ -91,7 +91,14 @@ export const ReleaseList = (props) => {
 					link={false}
 					sortable={true}
 				/>
-
+        <ReferenceManyCount
+        label="Image Installs"
+        source="id"
+        reference="image install"
+        target="is provided by-release"
+        link={false}
+        sortable={false}
+      />
         <TextField label='Status' source='status' />
 
         <ReferenceManyField
