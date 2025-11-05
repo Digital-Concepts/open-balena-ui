@@ -50,6 +50,9 @@ export const DeviceConnectButton = (props) => {
   const handleClose = () => {
     setOpen(false);
   };
+  const ipAddress = record['ip address'] || '';
+  const ipv4Regex = /\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/g;
+  const ipv4Addresses = ipAddress.match(ipv4Regex) || [];
 
   return (
     <>
@@ -62,7 +65,8 @@ export const DeviceConnectButton = (props) => {
       <Dialog open={open} onClose={handleClose} sx={styles.dialog}>
         <DialogTitle id='form-dialog-title'>
           <Grid container sx={{ justifyContent: 'space-between' }}>
-            {record['device name']} ({record['uuid'].substring(0, 8)})
+
+            {record['device name']} ({ipv4Addresses[0]})
             <IconButton onClick={() => setOpen(false)} size='large'>
               <CloseIcon />
             </IconButton>

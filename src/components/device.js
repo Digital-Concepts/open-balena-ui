@@ -197,7 +197,7 @@ const CustomBulkActionButtons = (props) => {
   );
 };
 
-const ExtendedPagination = ({ rowsPerPageOptions = [10, 25, 50, 100, 250], ...rest }) => <Pagination rowsPerPageOptions={rowsPerPageOptions} {...rest} />;
+const ExtendedPagination = ({ rowsPerPageOptions = [25, 50, 100, 250], ...rest }) => <Pagination rowsPerPageOptions={rowsPerPageOptions} {...rest} />;
 
 export const DeviceList = (props) => {
 	const [groupedView, setGroupedView] = React.useState(false);
