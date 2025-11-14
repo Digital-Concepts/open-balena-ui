@@ -61,7 +61,9 @@ const SummaryWidget = () => {
   if (!record) {
     return <Loading />;
   }
-
+  const ipAddress = record['ip address'] || '';
+  const ipv4Regex = /\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/g;
+  const ipv4Addresses = ipAddress.match(ipv4Regex) || [];
   return (
     <>
       <Title title='Summary' />
@@ -170,15 +172,25 @@ const SummaryWidget = () => {
               </td>
 
               <td>
-                <Label>Public IP Addresses</Label>
-                {record['public address']?.split(' ').map((ip) => (
-                  <CopyChip
-                    placement='left'
-                    style={{ marginBottom: '5px' }}
-                    title={ip}
-                    label={ip.length > 15 ? ip.slice(0, 15) + '...' : ip}
-                  />
-                ))}
+                <Label>WebUI</Label>
+                    {(() => {
+                      const ip = ipv4Addresses[0];
+                      return ip ? (
+                        <a
+                          href={`http://${ip}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ textDecoration: 'none' }}
+                        >
+                          <CopyChip
+                            placement='left'
+                            style={{ marginBottom: '5px' }}
+                            title={ip}
+                            label={ip.length > 15 ? ip.slice(0, 14) + '...' : ip}
+                          />
+                        </a>
+                      ) : null;
+                    })()}
               </td>
             </tr>
 

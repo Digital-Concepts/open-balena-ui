@@ -65,8 +65,25 @@ export const DeviceConnectButton = (props) => {
       <Dialog open={open} onClose={handleClose} sx={styles.dialog}>
         <DialogTitle id='form-dialog-title'>
           <Grid container sx={{ justifyContent: 'space-between' }}>
-
-            {record['device name']} ({ipv4Addresses[0]})
+            <span style={{ whiteSpace: 'nowrap' }}>
+              {record['device name']?.trim()} (
+                {ipv4Addresses[0] ? (
+                  <a
+                    href={`http://${ipv4Addresses[0].trim()}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: '#1976d2',
+                      textDecoration: 'underline',
+                      cursor: 'pointer',
+                      fontWeight: 500
+                    }}
+                  >
+                    {ipv4Addresses[0].trim()}
+                  </a>
+                ) : null}
+              )
+            </span>
             <IconButton onClick={() => setOpen(false)} size='large'>
               <CloseIcon />
             </IconButton>
