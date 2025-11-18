@@ -129,7 +129,7 @@ export const FleetCards = () => {
 												<CardHeader
 													title={
 														<Tooltip title={fleet.fleetName}>
-															{fleet.fleetName}
+															<span>{fleet.fleetName}</span>
 														</Tooltip>
 													}
 													sx={{ fontWeight: 'bold', height: '45px' }}

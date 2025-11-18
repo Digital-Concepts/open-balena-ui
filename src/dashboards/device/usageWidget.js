@@ -11,7 +11,7 @@ const LinearProgressWithLabel = (props) => {
       </Box>
       <Box sx={{ flex: 1, minWidth: '3em' }}>
         <Tooltip placement='top' arrow={true} title={props.tooltip}>
-          {props.displayValue ? props.displayValue + props.displayUnits : Math.round(props.value) + '%'}
+          <span>{props.displayValue ? props.displayValue + props.displayUnits : Math.round(props.value) + '%'}</span>
         </Tooltip>
       </Box>
     </Box>

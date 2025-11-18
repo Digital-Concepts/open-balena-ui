@@ -1,6 +1,6 @@
 FROM node:22-alpine AS base
 
-ENV NODE_ENV=production
+ENV NODE_ENV=development
 
 WORKDIR /usr/src/app
 COPY ./package.json ./
@@ -42,6 +42,7 @@ RUN curl -sSL https://github.com/balena-io/balena-cli/releases/download/v$BALENA
     rm balena-cli.zip
 
 ENV BALENARC_BALENA_URL=digital-concepts.eu
+ENV NODE_ENV=development
 
 # Install Node.js dependencies
 RUN npm install --no-fund --no-update-notifier --no-audit --production && \

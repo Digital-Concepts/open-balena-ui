@@ -125,7 +125,7 @@ const SummaryWidget = () => {
                       arrow={true}
                       title={'Since ' + dateFormat(new Date(record['last vpn event']))}
                     >
-                      {record['is connected to vpn'] ? 'Connected' : 'Disconnected'}
+                       <span>{record['is connected to vpn'] ? 'Connected' : 'Disconnected'}</span>
                     </Tooltip>
                   )}
                 />

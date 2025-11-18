@@ -300,7 +300,7 @@ export const DeviceList = (props) => {
 						render={(record) => (
 							<Tooltip placement="top" arrow={true} title={
 									'Since ' + dateFormat(new Date(record['last vpn event'])) }>
-								{record['is connected to vpn'] ? 'Connected' : 'Disconnected'}
+								<span>{record['is connected to vpn'] ? 'Connected' : 'Disconnected'}</span>
 							</Tooltip>
 						)}
 					/>
@@ -361,7 +361,7 @@ const FleetDeviceList = ({ fleetId }) => {
               arrow={true}
               title={'Since ' + dateFormat(new Date(record['last vpn event']))}
               >
-              {record['is connected to vpn'] ? 'Connected' : 'Disconnected'}
+              <span>{record['is connected to vpn'] ? 'Connected' : 'Disconnected'}</span>
             </Tooltip>
             )}
         />
