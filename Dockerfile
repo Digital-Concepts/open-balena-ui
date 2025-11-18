@@ -45,7 +45,7 @@ ENV BALENARC_BALENA_URL=digital-concepts.eu
 ENV NODE_ENV=development
 
 # Install Node.js dependencies
-RUN npm install --no-fund --no-update-notifier --no-audit --production && \
+RUN npm install --no-fund --no-update-notifier --no-audit && \
     npm install portfinder wait-port node-fetch multer react-helmet && \
     npm cache clean --force
 
