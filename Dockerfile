@@ -34,7 +34,7 @@ RUN apk update && apk add --no-cache \
     && rm -rf /var/cache/apk/*
 
 # Install balena-cli
-ENV BALENA_CLI_VERSION 20.2.3
+ENV BALENA_CLI_VERSION=20.2.3
 RUN curl -sSL https://github.com/balena-io/balena-cli/releases/download/v$BALENA_CLI_VERSION/balena-cli-v$BALENA_CLI_VERSION-linux-x64-standalone.zip > balena-cli.zip && \
     unzip balena-cli.zip && \
     chmod +x /usr/src/app/balena-cli/balena && \
