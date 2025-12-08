@@ -12,13 +12,14 @@ COPY ./server ./server
 COPY ./src ./src
 COPY ./webpack.*.js ./
 
-RUN NODE_ENV=development npm install --no-fund --no-update-notifier --no-audit \
-    && npm cache clean --force \
+# Install ALL dependencies with legacy peer deps flag
+RUN NODE_ENV=development npm install --legacy-peer-deps --no-fund --no-update-notifier --no-audit \
+    && npm cache clean --force\
     && BABEL_ENV=node npm run build
 
 FROM base AS production-image
 
-# Install system dependencies first
+# Install system dependencies
 RUN apk update && apk add --no-cache \
     curl \
     unzip \
@@ -43,12 +44,15 @@ RUN curl -sSL https://github.com/balena-io/balena-cli/releases/download/v$BALENA
 
 ENV BALENARC_BALENA_URL=digital-concepts.eu
 
-# Install Node.js dependencies
-RUN npm install --no-fund --no-update-notifier --no-audit --production && \
+# Install Node.js dependencies with legacy peer deps
+RUN npm install --legacy-peer-deps --no-fund --no-update-notifier --no-audit && \
+    npm dedupe && \
     npm install portfinder wait-port node-fetch multer react-helmet && \
     npm cache clean --force
 
 COPY --from=builder /usr/src/app/server/ /usr/src/app/server/
+COPY --from=builder /usr/src/app/src/ /usr/src/app/src/
+COPY --from=builder /usr/src/app/webpack.*.js /usr/src/app/
 COPY --from=builder /usr/src/app/dist/ /usr/src/app/dist/
 
 CMD ["npm", "run", "serve"]
