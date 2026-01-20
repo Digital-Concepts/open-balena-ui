@@ -1,7 +1,7 @@
 const express = require('express');
 const registryImageRoutes = require('./routes/registryImage');
 const { getReactAppEnv } = require('./controller/appEnvironment');
-
+const serialListRoutes = require('./routes/serialList');
 const jwt = require('njwt');
 require('dotenv').config();
 const fetch = (...args) =>
@@ -21,6 +21,7 @@ const app = express();
 app.use(express.json());
 
 app.use('/', registryImageRoutes);
+app.use('/', serialListRoutes);
 app.get('/environment.js', getReactAppEnv);
 app.get('*', express.static('dist'));
 

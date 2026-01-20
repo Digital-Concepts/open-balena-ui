@@ -40,6 +40,7 @@ import TreeMenu from './ui/TreeMenu';
 import customTheme from './ui/customTheme';
 import versions from './versions';
 import environment from './lib/reactAppEnv';
+import serialList from './components/serialList';
 
 const httpClient = (url, options = {}) => {
   if (!options.headers) {
@@ -49,7 +50,88 @@ const httpClient = (url, options = {}) => {
   return fetchUtils.fetchJson(url, options);
 };
 
-const dataProvider = postgrestDataProvider(environment.REACT_APP_OPEN_BALENA_POSTGREST_URL, httpClient);
+const postgrestDP = postgrestDataProvider(environment.REACT_APP_OPEN_BALENA_POSTGREST_URL, httpClient);
+
+let gatewaysCache = null;
+let gatewayCacheTime = null;
+const CACHE_DURATION = 30000; 
+
+const dataProvider = {
+  ...postgrestDP,
+  getList: async (resource, params) => {
+    if (resource === 'gateways' || resource === 'recentGateways') {
+      const { page, perPage } = params.pagination;
+      const { field, order } = params.sort;
+      const { q, product_id } = params.filter;
+
+      let allGateways;
+      const now = Date.now();
+      if (gatewaysCache && gatewayCacheTime && (now - gatewayCacheTime < CACHE_DURATION)) {
+        allGateways = gatewaysCache;
+      } else {
+        const { json } = await httpClient('/getGateways');
+        allGateways = json || [];
+        gatewaysCache = allGateways;
+        gatewayCacheTime = now;
+      }
+      
+      let data = [...allGateways];
+
+      if (resource === 'recentGateways') {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        
+        data = data.filter(record => {
+          if (!record.registered_at) return false;
+          const registeredDate = new Date(record.registered_at);
+          return registeredDate > sevenDaysAgo;
+        });
+      }
+
+      if (q) {
+        const searchLower = q.toLowerCase();
+        data = data.filter(record => {
+          return (
+            (record.serial && record.serial.toLowerCase().includes(searchLower)) ||
+            (record.eurid && record.eurid.toLowerCase().includes(searchLower)) ||
+            (record.cpu_serial && record.cpu_serial.toLowerCase().includes(searchLower)) ||
+            (record.mac_address && record.mac_address.toLowerCase().includes(searchLower)) ||
+            (record.product_id && record.product_id.toLowerCase().includes(searchLower)) ||
+            (record.id && record.id.toString().includes(searchLower))
+          );
+        });
+      }
+      
+      if (product_id) {
+        data = data.filter(record => record.product_id === product_id);
+      }
+
+      if (field) {
+        data.sort((a, b) => {
+          const aVal = a[field];
+          const bVal = b[field];
+          
+          if (aVal == null) return 1;
+          if (bVal == null) return -1;
+          
+          if (aVal < bVal) return order === 'ASC' ? -1 : 1;
+          if (aVal > bVal) return order === 'ASC' ? 1 : -1;
+          return 0;
+        });
+      }
+      
+      const total = data.length;
+      const offset = (page - 1) * perPage;
+      const paginatedData = data.slice(offset, offset + perPage);
+      
+      return {
+        data: paginatedData,
+        total,
+      };
+    }
+    return postgrestDP.getList(resource, params);
+  },
+};
 
 const deviceTypeAliasVer = versions.resource('deviceTypeAlias', environment.REACT_APP_OPEN_BALENA_API_VERSION);
 
@@ -141,6 +223,9 @@ const OpenBalenaAdmin = () => (
     <Resource name='menu-release' options={{ label: 'Releases', isMenuParent: true }} />
     <Resource name='release' options={{ label: 'Releases', menuParent: 'menu-release' }} {...release} />
     <Resource name='release tag' options={{ label: 'Tags', menuParent: 'menu-release' }} {...releaseTag} />
+
+    <Resource name='menu-serial-db' options={{ label: 'Serial DB', isMenuParent: true }} />
+    <Resource name='gateways' options={{ label: 'Gateways', menuParent: 'menu-serial-db' }} {...serialList} />
 
     <Resource name='menu-service' options={{ label: 'Services', isMenuParent: true }} />
     <Resource name='service' options={{ label: 'Services', menuParent: 'menu-service' }} {...service} />
