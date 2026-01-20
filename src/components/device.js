@@ -13,6 +13,8 @@ import {
 	InputLabel,
 	Select,
 	MenuItem,
+	Checkbox,
+	FormControlLabel,
 } from '@mui/material';
 import {
 	Done,
@@ -204,6 +206,9 @@ export const DeviceList = (props) => {
 	const [selectedFleet, setSelectedFleet] = React.useState(() => {
 		return localStorage.getItem('selectedFleet') || '';
 	});
+	const [hideOffline, setHideOffline] = React.useState(() => {
+		return localStorage.getItem('hideOffline') === 'true';
+	});
 	const { title, ...listProps } = props;
 
 	const { data: fleets, isLoading: fleetsLoading } = useGetList('application', {
@@ -212,7 +217,10 @@ export const DeviceList = (props) => {
 		pagination: { page: 1, perPage: 1000 },
 	});
 
-	const deviceFilter = selectedFleet ? { 'belongs to-application': selectedFleet } : {};
+	const deviceFilter = {
+		...(selectedFleet && { 'belongs to-application': selectedFleet }),
+		...(hideOffline && { 'api heartbeat state': 'online' }),
+	};
 
 	const handleFleetChange = (event) => {
 		const fleetId = event.target.value;
@@ -222,6 +230,12 @@ export const DeviceList = (props) => {
 		} else {
 			localStorage.removeItem('selectedFleet');
 		}
+	};
+
+	const handleHideOfflineChange = () => {
+		const newValue = !hideOffline;
+		setHideOffline(newValue);
+		localStorage.setItem('hideOffline', newValue);
 	};
 
 	const clearFleetFilter = () => {
@@ -285,6 +299,23 @@ export const DeviceList = (props) => {
 						Clear Filter
 					</Button>
 				)}
+				
+				<FormControlLabel
+					control={
+						<Checkbox
+							checked={hideOffline}
+							onChange={handleHideOfflineChange}
+							sx={{
+								color: '#2A506F',
+								'&.Mui-checked': {
+									color: '#2A506F',
+								},
+							}}
+						/>
+					}
+					label="Hide Offline Devices"
+					sx={{ color: '#2A506F' }}
+				/>
 			</Box>
 
 			<List {...listProps} title={title} filters={deviceFilters} filter={deviceFilter} pagination={<ExtendedPagination />} >
