@@ -5,6 +5,7 @@ import ConnectIcon from '@mui/icons-material/Sensors';
 import CloseIcon from '@mui/icons-material/Close';
 import Tooltip from '@mui/material/Tooltip';
 import DeviceConnect from './DeviceConnect';
+import { ConfirmationDialog } from './ConfirmationDialog';
 import { useRecordContext } from 'react-admin';
 
 const styles = {
@@ -43,13 +44,20 @@ export class Iframe extends React.Component {
 
 export const DeviceConnectButton = (props) => {
   const [open, setOpen] = React.useState(false);
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
   const record = useRecordContext() || props.record;
   const connectIcon = props.connectIcon || <ConnectIcon />;
   const connectIconTooltip = props.connectIconTooltip || 'Connect';
 
-  const handleClose = () => {
+  const handleConfirmClose = () => {
     setOpen(false);
+    setConfirmOpen(false);
   };
+
+  const handleRequestClose = () => {
+    setConfirmOpen(true);
+  };
+
   const ipAddress = record['ip address'] || '';
   const ipv4Regex = /\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/g;
   const ipv4Addresses = ipAddress.match(ipv4Regex) || [];
@@ -62,7 +70,7 @@ export const DeviceConnectButton = (props) => {
           {props.label ? <span sx={{ pl: '4px' }}>{props.label}</span> : ''}
         </Button>
       </Tooltip>
-      <Dialog open={open} onClose={handleClose} sx={styles.dialog}>
+      <Dialog open={open} onClose={handleRequestClose} sx={styles.dialog}>
         <DialogTitle id='form-dialog-title'>
           <Grid container sx={{ justifyContent: 'space-between' }}>
             <span style={{ whiteSpace: 'nowrap' }}>
@@ -84,7 +92,7 @@ export const DeviceConnectButton = (props) => {
                 ) : null}
               )
             </span>
-            <IconButton onClick={() => setOpen(false)} size='large'>
+            <IconButton onClick={handleRequestClose} size='large'>
               <CloseIcon />
             </IconButton>
           </Grid>
@@ -93,6 +101,15 @@ export const DeviceConnectButton = (props) => {
           <DeviceConnect {...props} />
         </DialogContent>
       </Dialog>
+
+      <ConfirmationDialog
+        open={confirmOpen}
+        title='Close connection?'
+        content='Closing this window will end your remote session.'
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={handleConfirmClose}
+        confirmButtonText='Close'
+      />
     </>
   );
 };
