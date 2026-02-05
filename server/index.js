@@ -427,5 +427,76 @@ app.post('/update-supervisor', async (req, res) => {
 	}
 });
 
+app.post('/download-backup', async (req, res) => {
+	let tunnelProcess;
+	let sessionDir;
+	try {
+		const { uuid, password } = req.body;
+		const token = req.headers.authorization.split('Bearer ')[1];
+		jwt.verify(token, process.env.OPEN_BALENA_JWT_SECRET);
+
+		sessionDir = await createSessionDir(uuid);
+		await balenaLogin(token, sessionDir);
+		const { tunnelProcess: tp, tunnelPort } = await openTunnel(
+			uuid,
+			'12738:127.0.0.1',
+			sessionDir,
+		);
+		tunnelProcess = tp;
+
+		const downloadPath = `/tmp/sessions/${uuid}/download_${Date.now()}`;
+		fs.mkdirSync(downloadPath, { recursive: true });
+
+		const scpCommand = `scp -i /certs/tunnelKey/tunnelKey -P ${tunnelPort} -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@127.0.0.1:/backup/backup_* ${downloadPath}/`;
+		await new Promise((resolve, reject) => {
+			exec(scpCommand, (error, stdout, stderr) => {
+				if (error) {
+					console.error(`SCP error: ${error}`);
+					reject(error);
+				} else {
+					console.log('Files downloaded successfully');
+					resolve();
+				}
+			});
+		});
+		const zipFile = `/tmp/sessions/${uuid}/backup_${Date.now()}.zip`;
+		await new Promise((resolve, reject) => {
+			exec(
+				`cd ${downloadPath} && zip -r ${zipFile} .`,
+				(error, stdout, stderr) => {
+					if (error) {
+						console.error(`Zip error: ${error}`);
+						reject(error);
+					} else {
+						resolve();
+					}
+				},
+			);
+		});
+
+		res.setHeader(
+			'Content-Disposition',
+			`attachment; filename="outbound_${password}.zip"`,
+		);
+		res.setHeader('Content-Type', 'application/zip');
+
+		const fileStream = fs.createReadStream(zipFile);
+		fileStream.pipe(res);
+
+		fileStream.on('end', () => {
+			fs.rmSync(downloadPath, { recursive: true, force: true });
+			fs.unlinkSync(zipFile);
+			cleanupTunnelAndSession(tunnelProcess, sessionDir);
+		});
+	} catch (error) {
+		cleanupTunnelAndSession(tunnelProcess, sessionDir);
+		console.error('Error during file download:', error);
+		res
+			.status(500)
+			.json({ error: 'An error occurred while downloading files' });
+	}
+});
+
+
 app.listen(PORT, HOST);
 console.log(`Running open-balena-ui on http://${HOST}:${PORT}`);

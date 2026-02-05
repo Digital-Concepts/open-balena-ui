@@ -270,6 +270,40 @@ const ControlsWidget = () => {
 		}
 	};
 
+	const downloadBackup = async (device) => {
+		const session = authProvider.getSession();
+		try {
+			const response = await fetch('/download-backup', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${session.jwt}`,
+				},
+				body: JSON.stringify({
+					uuid: device.uuid,
+					password: device['device name']?.split('-')[0],
+				}),
+			});
+
+			if (response.ok) {
+				const blob = await response.blob();
+				const url = window.URL.createObjectURL(blob);
+				const a = document.createElement('a');
+				a.href = url;
+				a.download = `outbound_${device['device name']?.split('-')[0]}.zip`;
+				document.body.appendChild(a);
+				a.click();
+				a.remove();
+				window.URL.revokeObjectURL(url);
+			} else {
+				console.error('Failed to download backup', response.statusText);
+				alert('Failed to download backup. Please try again.');
+			}
+		} catch (error) {
+			console.error('Error while downloading backup', error);
+			alert('An error occurred while downloading backup. Please try again.');
+		}
+	};
 	const updateSupervisor = async (device) => {
 		const session = authProvider.getSession();
 		try {
