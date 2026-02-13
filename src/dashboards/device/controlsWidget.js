@@ -106,7 +106,8 @@ const ControlsWidget = () => {
 				},
 				body: JSON.stringify({
 					uuid: device.uuid,
-					password: device['device name']?.split('-')[0],
+					name: device['device name']?.split('-')[0],
+					configPassword: device['device name'],
 				}),
 			});
 
@@ -174,7 +175,7 @@ const ControlsWidget = () => {
 				},
 				body: JSON.stringify({
 					uuid: device.uuid,
-					password: device['device name'],
+					configPassword: device['device name'],
 					status: status,
 				}),
 			});
@@ -209,7 +210,8 @@ const ControlsWidget = () => {
 				formData.append('files', file);
 			}
 			formData.append('uuid', device.uuid);
-			formData.append('password', device['device name']?.split('-')[0]);
+			formData.append('name', device['device name']?.split('-')[0]);
+			formData.append('configPassword', device['device name']);
 
 			const session = authProvider.getSession();
 			try {
@@ -246,7 +248,8 @@ const ControlsWidget = () => {
 				},
 				body: JSON.stringify({
 					uuid: device.uuid,
-					password: device['device name']?.split('-')[0],
+					name: device['device name']?.split('-')[0],
+					configPassword: device['device name'],
 				}),
 			});
 
@@ -281,7 +284,8 @@ const ControlsWidget = () => {
 				},
 				body: JSON.stringify({
 					uuid: device.uuid,
-					password: device['device name']?.split('-')[0],
+					name: device['device name']?.split('-')[0],
+					configPassword: device['device name'],
 				}),
 			});
 
@@ -337,7 +341,40 @@ const ControlsWidget = () => {
 			notify('An error occurred while updating supervisor', { type: 'error' });
 		}
 	};
+	const uploadIonos = async (device) => {
+		const session = authProvider.getSession();
+		try {
+			const response = await fetch("/upload-ionos", {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${session.jwt}`,
+					},
+					body: JSON.stringify({
+						uuid: device.uuid,
+						configPassword: device['device name'],
+					}),
+				},
+			);
+			if (response.ok) {
+				const data = await response.json();
+				notify(
+					`Upload to Ionos command sent successfully: ${data.lastLine || ''}`,
+					{ type: 'success' },
+				);
 
+				console.log(data.output);
+			} else {
+				const errorData = await response.json().catch(() => ({}));
+				notify(
+					`Failed to upload to Ionos<: ${errorData.error || response.statusText}`,
+					{ type: 'error' },
+				);
+			}
+		} catch (error) {
+			notify('An error occurred while uploading to Ionos', { type: 'error' });
+		}
+	};
 	if (!record) return null;
 
 	const isOffline = record['api heartbeat state'] !== 'online';
@@ -489,24 +526,54 @@ const ControlsWidget = () => {
 								</Typography>
 							</CardContent>
 							<CardActions>
-								<Button
-									variant="outlined"
-									size="small"
-									onClick={() => uploadFiles(record)}
-									startIcon={<CloudUploadIcon />}
-									disabled={isOffline}
-								>
-									Upload Files
-								</Button>
-								<Button
-									variant="outlined"
-									size="small"
-									onClick={() => downloadFiles(record)}
-									startIcon={<CloudDownloadIcon />}
-									disabled={isOffline}
-								>
-									Download Files
-								</Button>
+								<Grid container direction="column" spacing={2}>
+									<Grid item>
+										{/* Row 1 */}
+										<Box display="flex" gap={1}>
+										<Button
+											variant="outlined"
+											size="small"
+											onClick={() => uploadFiles(record)}
+											startIcon={<CloudUploadIcon />}
+											disabled={isOffline}
+										>
+											Upload Files
+										</Button>
+										<Button
+											variant="outlined"
+											size="small"
+											onClick={() => downloadFiles(record)}
+											startIcon={<CloudDownloadIcon />}
+											disabled={isOffline}
+										>
+											Download Files
+										</Button>
+										</Box>
+									</Grid>
+								<Grid item>
+										{/* Row 2 */}
+										<Box display="flex" gap={1}>
+										<Button
+											variant="outlined"
+											size="small"
+											onClick={() => downloadBackup(record)}
+											startIcon={<CloudDownloadIcon />}
+											disabled={isOffline}
+										>
+											Download Backup
+										</Button>
+										<Button
+											variant="outlined"
+											size="small"
+											onClick={() => uploadIonos(record)}
+											startIcon={<CloudUploadIcon />}
+											disabled={isOffline}
+										>
+											Upload Backup to Ionos
+										</Button>
+										</Box>
+										</Grid>
+								</Grid>
 							</CardActions>
 						</Card>
 					</Grid>
