@@ -5,5 +5,6 @@ const reactAppEnv = serverEnv.filter((envSet) => envSet[0].startsWith('REACT_APP
 const reactAppEnvJson = JSON.stringify(Object.fromEntries(reactAppEnv));
 
 module.exports = (req, res) => {
+  res.setHeader('Content-Type', 'application/javascript');
   res.status(200).end(`window.env = ${reactAppEnvJson};`);
 };

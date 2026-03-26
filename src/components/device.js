@@ -201,10 +201,21 @@ const CustomBulkActionButtons = (props) => {
 
 const ExtendedPagination = ({ rowsPerPageOptions = [25, 50, 100, 250], ...rest }) => <Pagination rowsPerPageOptions={rowsPerPageOptions} {...rest} />;
 
+const AgeSortController = ({ ageSort }) => {
+	const { setSort } = useListContext();
+	React.useEffect(() => {
+		setSort({ field: 'id', order: ageSort || 'ASC' });
+	}, [ageSort]);
+	return null;
+};
+
 export const DeviceList = (props) => {
 	const [groupedView, setGroupedView] = React.useState(false);
 	const [selectedFleet, setSelectedFleet] = React.useState(() => {
 		return localStorage.getItem('selectedFleet') || '';
+	});
+	const [ageSort, setAgeSort] = React.useState(() => {
+		return localStorage.getItem('ageSort') || '';
 	});
 	const [hideOffline, setHideOffline] = React.useState(() => {
 		return localStorage.getItem('hideOffline') === 'true';
@@ -229,6 +240,16 @@ export const DeviceList = (props) => {
 			localStorage.setItem('selectedFleet', fleetId);
 		} else {
 			localStorage.removeItem('selectedFleet');
+		}
+	};
+
+	const handleAgeSortChange = (event) => {
+		const value = event.target.value;
+		setAgeSort(value);
+		if (value) {
+			localStorage.setItem('ageSort', value);
+		} else {
+			localStorage.removeItem('ageSort');
 		}
 	};
 
@@ -299,7 +320,36 @@ export const DeviceList = (props) => {
 						Clear Filter
 					</Button>
 				)}
-				
+
+				<FormControl size="small" sx={{ width: 190 }}>
+					<Select
+						value={ageSort}
+						onChange={handleAgeSortChange}
+						displayEmpty
+						sx={{
+							backgroundColor: '#2A506F',
+							color: 'white',
+							'& .MuiOutlinedInput-notchedOutline': { borderColor: '#2A506F' },
+							'& .MuiSelect-icon': { color: 'white' },
+						}}
+						MenuProps={{
+							PaperProps: {
+								sx: {
+									backgroundColor: '#2A506F',
+									'& .MuiMenuItem-root': {
+										color: 'white', '&:hover': { backgroundColor: '#34607F' },
+										'&.Mui-selected': { backgroundColor: '#34607F', '&:hover': { backgroundColor: '#3E708F' } },
+									},
+								},
+							},
+						}}
+					>
+						<MenuItem value=""><b>Sort by Age</b></MenuItem>
+						<MenuItem value="ASC">Age: Oldest First</MenuItem>
+						<MenuItem value="DESC">Age: Newest First</MenuItem>
+					</Select>
+				</FormControl>
+
 				<FormControlLabel
 					control={
 						<Checkbox
@@ -316,9 +366,12 @@ export const DeviceList = (props) => {
 					label="Hide Offline Devices"
 					sx={{ color: '#2A506F' }}
 				/>
+
+
 			</Box>
 
-			<List {...listProps} title={title} filters={deviceFilters} filter={deviceFilter} pagination={<ExtendedPagination />} >
+			<List {...listProps} title={title} filters={deviceFilters} filter={deviceFilter} pagination={<ExtendedPagination />}>
+				<AgeSortController ageSort={ageSort} />
 				<Datagrid rowClick={false} bulkActionButtons={<CustomBulkActionButtons />} size="medium" >
 					<ReferenceField label="Name" source="id" reference="device" target="id" link="show" sortBy="device name">
 						<TextField source="device name" />
@@ -382,7 +435,11 @@ export const DeviceList = (props) => {
 
 					<ReleaseField label="Current Release" source="is running-release" />
 
-					<FunctionField label="Notes" render={(record) => record.note || ''} />
+					<FunctionField label="Notes" render={(record) => (
+						<Box sx={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={record.note || ''}>
+							{record.note || ''}
+						</Box>
+					)} />
 
 					<ReferenceField label="Fleet" source="belongs to-application" reference="application" target="id" >
 						<TextField source="app name" />
