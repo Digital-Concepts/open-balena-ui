@@ -149,17 +149,32 @@ app.post('/download-logs', async (req: Request, res: Response) => {
     sessionDir = await createSessionDir(uuid);
     await balenaLogin(token, sessionDir);
     await setSshState(uuid, configPassword, 'on', sessionDir);
-    const handle = await openTunnel(uuid, '8080:127.0.0.1', sessionDir);
+    // SCP via Container-SSH (Port 12738) statt HTTP-API GET /system/logfiles.
+    // Letzteres zwingt dcgwCore-Java das ZIP komplett im Heap aufzubauen
+    // (ZipOutputStream + ByteArrayOutputStream.ensureCapacity → OOM bei
+    // grossen Logs, siehe GW-81 / 2 Hits/24h). Mit SCP holen wir die
+    // Roh-Logs lokal und zippen UI-seitig — dcgwCore bleibt unbelastet.
+    const handle = await openTunnel(uuid, '12738:127.0.0.1', sessionDir);
     tunnelProcess = handle.tunnelProcess;
-    const logResponse = await fetch(`http://127.0.0.1:${handle.tunnelPort}/system/logfiles`, {
-      method: 'GET',
-      headers: { Authorization: `Basic ${Buffer.from(`admin:${name}`).toString('base64')}` },
+    const downloadPath = `/tmp/sessions/${uuid}/logs_${Date.now()}`;
+    fs.mkdirSync(downloadPath, { recursive: true });
+    // Single-Quotes um Remote-Glob, sonst expandiert die LOKALE Shell.
+    // *.log* deckt aktuelle (*.log) und rotierte Logs (*.log.0..N) ab.
+    const scpCommand = `scp -i /certs/tunnelKey/tunnelKey -P ${handle.tunnelPort} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null 'root@127.0.0.1:/var/log/dcgw/*.log*' ${downloadPath}/`;
+    await new Promise<void>((resolve, reject) => {
+      exec(scpCommand, (error) => (error ? reject(error) : resolve()));
     });
-    if (!logResponse.ok) {
-      cleanupTunnelAndSession(tunnelProcess, sessionDir);
-      return res.status(logResponse.status).json({ error: 'Failed to fetch logs' });
-    }
-    res.on('close', () => {
+    const zipFile = `/tmp/sessions/${uuid}/logs_${Date.now()}.zip`;
+    await new Promise<void>((resolve, reject) => {
+      exec(`cd ${downloadPath} && zip -r ${zipFile} .`, (error) => (error ? reject(error) : resolve()));
+    });
+    res.setHeader('Content-Disposition', `attachment; filename="logs_${name}.zip"`);
+    res.setHeader('Content-Type', 'application/zip');
+    const fileStream = fs.createReadStream(zipFile);
+    fileStream.pipe(res);
+    fileStream.on('end', () => {
+      fs.rmSync(downloadPath, { recursive: true, force: true });
+      fs.unlinkSync(zipFile);
       void (async () => {
         try {
           await setSshState(uuid, configPassword, 'off', sessionDir!);
@@ -170,26 +185,6 @@ app.post('/download-logs', async (req: Request, res: Response) => {
         }
       })();
     });
-    res.setHeader('Content-Disposition', `attachment; filename="logs_${name}.zip"`);
-    res.setHeader('Content-Type', 'application/zip');
-    if (logResponse.body) {
-      const reader = logResponse.body.getReader();
-      const pump = async () => {
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            res.write(Buffer.from(value));
-          }
-          res.end();
-        } catch (err) {
-          if (!res.headersSent) res.status(500).json({ error: 'Error streaming logs' });
-        }
-      };
-      void pump();
-    } else {
-      res.end();
-    }
   } catch (error) {
     cleanupTunnelAndSession(tunnelProcess, sessionDir);
     console.error('Error during log download', error);
