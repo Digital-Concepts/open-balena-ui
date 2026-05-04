@@ -37,3 +37,10 @@ env
 
 # .env files
 .env.devprod
+
+# gitnexus indexer cache
+.gitnexus
+
+# IDE / tooling state (per-developer, fork-local)
+.claude/
+.project
