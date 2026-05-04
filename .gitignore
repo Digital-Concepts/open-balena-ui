@@ -31,4 +31,9 @@ yarn.lock
 
 # WebStrom IDE
 .idea/*
+
+# fork-specific
 env
+
+# .env files
+.env.devprod
