@@ -149,11 +149,6 @@ app.post('/download-logs', async (req: Request, res: Response) => {
     sessionDir = await createSessionDir(uuid);
     await balenaLogin(token, sessionDir);
     await setSshState(uuid, configPassword, 'on', sessionDir);
-    // SCP via Container-SSH (Port 12738) statt HTTP-API GET /system/logfiles.
-    // Letzteres zwingt dcgwCore-Java das ZIP komplett im Heap aufzubauen
-    // (ZipOutputStream + ByteArrayOutputStream.ensureCapacity → OOM bei
-    // grossen Logs, siehe GW-81 / 2 Hits/24h). Mit SCP holen wir die
-    // Roh-Logs lokal und zippen UI-seitig — dcgwCore bleibt unbelastet.
     const handle = await openTunnel(uuid, '12738:127.0.0.1', sessionDir);
     tunnelProcess = handle.tunnelProcess;
     const downloadPath = `/tmp/sessions/${uuid}/logs_${Date.now()}`;
