@@ -38,20 +38,6 @@ type DeviceRecord = RaRecord & {
 	'api heartbeat state'?: string;
 };
 
-const styles = {
-	actionCard: {
-		padding: 0,
-		flexWrap: 'wrap',
-		'& .MuiButton-root': {
-			marginTop: '2em',
-			marginRight: '1em',
-			'.MuiButton-icon': {
-				marginRight: '6px !important',
-			},
-		},
-	},
-};
-
 const ControlsWidget: React.FC = () => {
 	const authProvider = useAuthProvider();
 	const notify = useNotify();
@@ -381,7 +367,7 @@ const ControlsWidget: React.FC = () => {
 									General
 								</Typography>
 							</CardContent>
-							<CardActions sx={styles.actionCard}>
+							<CardActions>
 								<Grid container direction='column' spacing={2}>
 									<Grid item>
 										<Box display='flex' gap={1}>
