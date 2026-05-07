@@ -178,8 +178,13 @@ export const postgrestDataProvider = (
     if (Object.keys(ftsFilter).length > 0) {
       const parsedFtsFilter = parseFilters(ftsFilter, defaultListOp);
       const orString = Object.keys(parsedFtsFilter)
-        .map((field) => `${field}.${parsedFtsFilter[field]}`)
-        .toString();
+        .flatMap((field) => {
+          const value = parsedFtsFilter[field];
+          return Array.isArray(value)
+            ? value.map((op) => `${field}.${op}`)
+            : [`${field}.${value}`];
+        })
+        .join(',');
       query.or = `(${orString})`;
     }
     // add header that Content-Range is in returned header
