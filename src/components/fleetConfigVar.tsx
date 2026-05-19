@@ -1,8 +1,9 @@
 import * as React from 'react';
 import {
+  Confirm,
   Create,
   Datagrid,
-  DeleteButton,
+  DeleteWithConfirmButton,
   Edit,
   EditButton,
   FormDataConsumer,
@@ -10,17 +11,72 @@ import {
   List,
   ReferenceField,
   ReferenceInput,
+  SaveButton,
   SelectInput,
   SimpleForm,
   TextField,
   TextInput,
   Toolbar,
   required,
+  useSaveContext,
   useUnique,
 } from 'react-admin';
+import { useFormContext } from 'react-hook-form';
 import CopyChip from '../ui/CopyChip';
 import JsonValueInput from '../ui/JsonValueInput';
 import VarNameInput from '../ui/VarNameInput';
+
+const SaveWithConfirmToolbar: React.FC = () => {
+  const [open, setOpen] = React.useState(false);
+  const [pendingValues, setPendingValues] = React.useState<any>(null);
+  const form = useFormContext();
+  const { save } = useSaveContext();
+
+  const handleClick = form.handleSubmit((data) => {
+    setPendingValues(data);
+    setOpen(true);
+  });
+
+  const handleConfirm = () => {
+    setOpen(false);
+    if (save && pendingValues) save(pendingValues);
+  };
+
+  return (
+    <Toolbar>
+      <div className='RaToolbar-defaultToolbar'>
+        <SaveButton type='button' onClick={handleClick} />
+        <DeleteWithConfirmButton
+          mutationMode='pessimistic'
+          confirmTitle='Delete Fleet Config Var'
+          confirmContent={
+            <>
+              Are you sure you want to delete this config variable? <p />{' '}
+              <strong style={{ color: 'red' }}>
+                This action will cause all gateways in the fleet to reboot.
+              </strong>
+            </>
+          }
+        />
+      </div>
+      <Confirm
+        isOpen={open}
+        loading={form.formState.isSubmitting}
+        title='Save Fleet Config Var'
+        content={
+          <>
+            Are you sure you want to save these changes? <p />{' '}
+            <strong style={{ color: 'red' }}>
+              This action will cause all gateways in the fleet to reboot.
+            </strong>
+          </>
+        }
+        onConfirm={handleConfirm}
+        onClose={() => setOpen(false)}
+      />
+    </Toolbar>
+  );
+};
 
 const uniqueIssueMessage = 'This ConfigVar is already present for this Fleet';
 
@@ -46,7 +102,21 @@ export const FleetConfigVarList: React.FC = () => {
 
         <Toolbar>
           <EditButton label='' size='small' variant='outlined' />
-          <DeleteButton mutationMode='optimistic' label='' size='small' variant='outlined' />
+          <DeleteWithConfirmButton 
+              mutationMode='pessimistic' 
+              label='' 
+              size='small' 
+              variant='outlined' 
+              confirmTitle='Delete Fleet Config Var'
+              confirmContent={
+                <>
+                  Are you sure you want to delete this config variable? <p />{' '}
+                  <strong style={{ color: 'red' }}>
+                    This action will cause all gateways in the fleet to reboot.
+                  </strong>
+                </>
+              }
+          />
         </Toolbar>
       </Datagrid>
     </List>
@@ -97,8 +167,8 @@ export const FleetConfigVarCreate: React.FC = () => {
 };
 
 export const FleetConfigVarEdit: React.FC = () => (
-  <Edit title='Edit Fleet Config Var'>
-    <SimpleForm>
+  <Edit title='Edit Fleet Config Var' mutationMode='pessimistic'>
+    <SimpleForm toolbar={<SaveWithConfirmToolbar />}>
       <ReferenceInput
         source='application'
         reference='application'
