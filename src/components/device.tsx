@@ -10,7 +10,6 @@ import {
 	Box,
 	Button,
 	FormControl,
-	InputLabel,
 	Select,
 	MenuItem,
 	Checkbox,
@@ -29,6 +28,7 @@ import {
 import dateFormat from 'dateformat';
 import * as React from 'react';
 import {
+	AutocompleteInput,
 	Create,
 	CreateButton,
 	Datagrid,
@@ -52,6 +52,7 @@ import {
 	TopToolbar,
 	required,
 	useGetOne,
+	useRecordContext,
 	useRedirect,
 	useListContext,
 	WithRecord,
@@ -65,6 +66,7 @@ import { v4 as uuidv4 } from 'uuid';
 import {
 	useCreateDevice,
 	useModifyDevice,
+	useModifyDeviceWithClient,
 	useSetServicesForNewDevice,
 } from '../lib/device';
 import CopyChip from '../ui/CopyChip';
@@ -82,6 +84,12 @@ import { resolveDeviceTargetRelease } from '../lib/targetRelease';
 import TargetReleaseIcon from '../ui/TargetReleaseIcon';
 import TargetReleaseTooltip from '../ui/TargetReleaseTooltip';
 import DeviceStructuredFilter from '../ui/DeviceStructuredFilter';
+import {
+  useDeviceClientTag,
+  useDistinctClientValues,
+  useUpsertDeviceClient,
+} from '../lib/deviceClient';
+import ClientColumnHeader, { UNCLASSIFIED_SENTINEL } from '../ui/ClientColumnHeader';
 
 // Get the proper field name for isPinnedOnRelease based on API version
 const isPinnedOnRelease = versions.resource('isPinnedOnRelease', environment.REACT_APP_OPEN_BALENA_API_VERSION);
@@ -236,29 +244,114 @@ const AgeSortController: React.FC<{ ageSort: string }> = ({ ageSort }) => {
 	return null;
 };
 
+const ClientCell: React.FC<{ deviceId: number | string }> = ({ deviceId }) => {
+	const { value } = useDeviceClientTag(deviceId);
+	return (
+		<Box
+			sx={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+			title={value || ''}
+		>
+			{value || ''}
+		</Box>
+	);
+};
+
+const ClientListFilterController: React.FC<{
+  selected: string[];
+  clientByDeviceId: Record<string, string>;
+  allDeviceIds: (number | string)[];
+  onExternalClear: () => void;
+}> = ({ selected, clientByDeviceId, allDeviceIds, onExternalClear }) => {
+  const { setFilters, filterValues } = useListContext();
+  const lastAppliedRef = React.useRef<string>('');
+
+  React.useEffect(() => {
+    // Detect external clear: we had previously written an id@in marker
+    // and now it's gone (e.g. user clicked react-admin's "Clear filters"
+    // chip). Sync the local selection back to empty.
+    if (selected.length > 0 && lastAppliedRef.current !== '' && !('id@in' in filterValues)) {
+      lastAppliedRef.current = '';
+      onExternalClear();
+      return;
+    }
+
+    const next = { ...filterValues };
+    if (selected.length === 0) {
+      if ('id@in' in next) {
+        delete (next as any)['id@in'];
+        setFilters(next, undefined);
+      }
+      lastAppliedRef.current = '';
+      return;
+    }
+
+    const realValues = selected.filter((v) => v !== UNCLASSIFIED_SENTINEL);
+    const includeUnclassified = selected.includes(UNCLASSIFIED_SENTINEL);
+
+    const matching = new Set<string>();
+    Object.entries(clientByDeviceId).forEach(([id, v]) => {
+      if (v && realValues.includes(v)) matching.add(id);
+    });
+
+    if (includeUnclassified) {
+      const tagged = new Set(
+        Object.keys(clientByDeviceId).filter((id) => (clientByDeviceId[id] ?? '') !== ''),
+      );
+      allDeviceIds.forEach((id) => {
+        if (!tagged.has(String(id))) matching.add(String(id));
+      });
+    }
+
+    const ids = Array.from(matching);
+    // PostgREST "in" filter expects a parenthesised, comma-joined list.
+    // We use the `id@in` key so the data provider routes through the
+    // `in` operator instead of the default `eq`.
+    const value = ids.length > 0 ? `(${ids.join(',')})` : '(-1)';
+    if (lastAppliedRef.current === value) return;
+    lastAppliedRef.current = value;
+    setFilters({ ...next, 'id@in': value }, undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, clientByDeviceId, allDeviceIds, filterValues]);
+
+  return null;
+};
+
 export const DeviceList: React.FC<ListProps<any>> = (props) => {
 	const [groupedView, setGroupedView] = React.useState(false);
-	const [selectedFleet, setSelectedFleet] = React.useState<string>(() => {
-		return localStorage.getItem('selectedFleet') || '';
-	});
 	const [ageSort, setAgeSort] = React.useState<string>(() => {
 		return localStorage.getItem('ageSort') || '';
 	});
 	const [hideOffline, setHideOffline] = React.useState<boolean>(() => {
 		return localStorage.getItem('hideOffline') === 'true';
 	});
-	const { title, ...listProps } = props;
+	const [selectedFleet, setSelectedFleet] = React.useState<string>(() => {
+		return localStorage.getItem('selectedFleet') || '';
+	});
+	const [selectedClients, setSelectedClients] = React.useState<string[]>(() => {
+		try {
+			const raw = localStorage.getItem('selectedClients');
+			return raw ? JSON.parse(raw) : [];
+		} catch {
+			return [];
+		}
+	});
+
+	const { values: knownClients, isLoading: knownClientsLoading } = useDistinctClientValues();
+
+	const handleClientSelectionChange = (next: string[]) => {
+		setSelectedClients(next);
+		if (next.length === 0) {
+			localStorage.removeItem('selectedClients');
+		} else {
+			localStorage.setItem('selectedClients', JSON.stringify(next));
+		}
+	};
 
 	const { data: fleets } = useGetList('application', {
 		filter: { 'is of-class': 'fleet' },
 		sort: { field: 'app name', order: 'ASC' },
 		pagination: { page: 1, perPage: 1000 },
 	});
-
-	const deviceFilter: Record<string, any> = {
-		...(selectedFleet && { 'belongs to-application': selectedFleet }),
-		...(hideOffline && { 'api heartbeat state': 'online' }),
-	};
 
 	const handleFleetChange = (event: any) => {
 		const fleetId = event.target.value as string;
@@ -269,6 +362,60 @@ export const DeviceList: React.FC<ListProps<any>> = (props) => {
 			localStorage.removeItem('selectedFleet');
 		}
 	};
+
+	const clearFleetFilter = () => {
+		setSelectedFleet('');
+		localStorage.removeItem('selectedFleet');
+	};
+	const { title, ...listProps } = props;
+
+	const deviceFilter: Record<string, any> = {
+		...(selectedFleet && { 'belongs to-application': selectedFleet }),
+		...(hideOffline && { 'api heartbeat state': 'online' }),
+	};
+
+	// Client-side filter fallback: the open-balena API doesn't support
+	// device_tag/any() filters, so we fetch all `client` tags once and
+	// narrow the list by id.
+	const { data: allClientTags } = useGetList('device tag', {
+		filter: { 'tag key': 'client' },
+		pagination: { page: 1, perPage: 10000 },
+		sort: { field: 'id', order: 'ASC' },
+	});
+	const clientByDeviceId = React.useMemo(() => {
+		const m: Record<string, string> = {};
+		(allClientTags ?? []).forEach((row: any) => {
+			if (row?.device != null) m[String(row.device)] = (row.value ?? '').toString();
+		});
+		return m;
+	}, [allClientTags]);
+
+	const { data: allDevicesForFilter } = useGetList('device', {
+		pagination: { page: 1, perPage: 10000 },
+		sort: { field: 'id', order: 'ASC' },
+	});
+	const allDeviceIds = React.useMemo(
+		() => (allDevicesForFilter ?? []).map((d: any) => d.id),
+		[allDevicesForFilter],
+	);
+
+	const clientCounts = React.useMemo(() => {
+		const counts: Record<string, number> = {};
+		Object.values(clientByDeviceId).forEach((v) => {
+			if (v) counts[v] = (counts[v] ?? 0) + 1;
+		});
+		return counts;
+	}, [clientByDeviceId]);
+
+	const unclassifiedCount = React.useMemo(() => {
+		const tagged = new Set(
+			Object.keys(clientByDeviceId).filter((id) => (clientByDeviceId[id] ?? '') !== ''),
+		);
+		return allDeviceIds.reduce(
+			(acc, id) => (tagged.has(String(id)) ? acc : acc + 1),
+			0,
+		);
+	}, [clientByDeviceId, allDeviceIds]);
 
 	const handleAgeSortChange = (event: any) => {
 		const value = event.target.value as string;
@@ -286,18 +433,13 @@ export const DeviceList: React.FC<ListProps<any>> = (props) => {
 		localStorage.setItem('hideOffline', String(newValue));
 	};
 
-	const clearFleetFilter = () => {
-		setSelectedFleet('');
-		localStorage.removeItem('selectedFleet');
-	};
-
 	if (groupedView) {
 		return (
 			<div>
 				<Button startIcon={<ViewList />} onClick={() => setGroupedView(false)} sx={{ mb: 2 }}>
 					Switch to List View
 				</Button>
-				<FleetGroupedDeviceList />
+				<ClientGroupedDeviceList />
 			</div>
 		);
 	}
@@ -305,33 +447,44 @@ export const DeviceList: React.FC<ListProps<any>> = (props) => {
 	return (
 		<div>
 			<Box sx={{ mb: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
-				<Button startIcon={<ViewModule />} onClick={() => setGroupedView(true)}>
-					Group by Fleet
+				<Button
+					variant='contained'
+					color='primary'
+					startIcon={<ViewModule />}
+					onClick={() => setGroupedView(true)}
+				>
+					Group by Client
 				</Button>
 				<FormControl size='small' sx={{ minWidth: 200 }}>
 					<Select
 						labelId='fleet-select-label'
 						id='fleet-select'
 						value={selectedFleet}
-						label='Filter by Fleet'
 						onChange={handleFleetChange}
 						displayEmpty
-						sx={{
-							backgroundColor: '#2A506F',
-							color: 'white',
-							'& .MuiOutlinedInput-notchedOutline': { borderColor: '#2A506F' },
-							'& .MuiSelect-icon': { color: 'white' },
-						}}
+						sx={(theme) => ({
+							backgroundColor: theme.palette.primary.main,
+							color: theme.palette.primary.contrastText,
+							'& .MuiOutlinedInput-notchedOutline': {
+								borderColor: theme.palette.primary.main,
+							},
+							'& .MuiSelect-icon': {
+								color: theme.palette.primary.contrastText,
+							},
+						})}
 						MenuProps={{
 							PaperProps: {
-								sx: {
-									backgroundColor: '#2A506F',
+								sx: (theme) => ({
+									backgroundColor: theme.palette.primary.main,
 									'& .MuiMenuItem-root': {
-										color: 'white',
-										'&:hover': { backgroundColor: '#34607F' },
-										'&.Mui-selected': { backgroundColor: '#34607F', '&:hover': { backgroundColor: '#3E708F' } },
+										color: theme.palette.primary.contrastText,
+										'&:hover': { backgroundColor: theme.palette.primary.light },
+										'&.Mui-selected': {
+											backgroundColor: theme.palette.primary.light,
+											'&:hover': { backgroundColor: theme.palette.primary.light },
+										},
 									},
-								},
+								}),
 							},
 						}}
 					>
@@ -351,28 +504,34 @@ export const DeviceList: React.FC<ListProps<any>> = (props) => {
 						Clear Filter
 					</Button>
 				)}
-
 				<FormControl size='small' sx={{ width: 190 }}>
 					<Select
 						value={ageSort}
 						onChange={handleAgeSortChange}
 						displayEmpty
-						sx={{
-							backgroundColor: '#2A506F',
-							color: 'white',
-							'& .MuiOutlinedInput-notchedOutline': { borderColor: '#2A506F' },
-							'& .MuiSelect-icon': { color: 'white' },
-						}}
+						sx={(theme) => ({
+							backgroundColor: theme.palette.primary.main,
+							color: theme.palette.primary.contrastText,
+							'& .MuiOutlinedInput-notchedOutline': {
+								borderColor: theme.palette.primary.main,
+							},
+							'& .MuiSelect-icon': {
+								color: theme.palette.primary.contrastText,
+							},
+						})}
 						MenuProps={{
 							PaperProps: {
-								sx: {
-									backgroundColor: '#2A506F',
+								sx: (theme) => ({
+									backgroundColor: theme.palette.primary.main,
 									'& .MuiMenuItem-root': {
-										color: 'white',
-										'&:hover': { backgroundColor: '#34607F' },
-										'&.Mui-selected': { backgroundColor: '#34607F', '&:hover': { backgroundColor: '#3E708F' } },
+										color: theme.palette.primary.contrastText,
+										'&:hover': { backgroundColor: theme.palette.primary.light },
+										'&.Mui-selected': {
+											backgroundColor: theme.palette.primary.light,
+											'&:hover': { backgroundColor: theme.palette.primary.light },
+										},
 									},
-								},
+								}),
 							},
 						}}
 					>
@@ -389,19 +548,25 @@ export const DeviceList: React.FC<ListProps<any>> = (props) => {
 						<Checkbox
 							checked={hideOffline}
 							onChange={handleHideOfflineChange}
-							sx={{
-								color: '#2A506F',
-								'&.Mui-checked': { color: '#2A506F' },
-							}}
+							sx={(theme) => ({
+								color: theme.palette.primary.main,
+								'&.Mui-checked': { color: theme.palette.primary.main },
+							})}
 						/>
 					}
 					label='Hide Offline Devices'
-					sx={{ color: '#2A506F' }}
+					sx={(theme) => ({ color: theme.palette.text.primary })}
 				/>
 			</Box>
 
 			<List {...listProps} title={title} filters={deviceFilters} filter={deviceFilter} pagination={<ExtendedPagination />}>
 				<AgeSortController ageSort={ageSort} />
+				<ClientListFilterController
+					selected={selectedClients}
+					clientByDeviceId={clientByDeviceId}
+					allDeviceIds={allDeviceIds}
+					onExternalClear={() => handleClientSelectionChange([])}
+				/>
 				<Datagrid rowClick={false} bulkActionButtons={<CustomBulkActionButtons />} size='medium'>
 					<ReferenceField label='Name' source='id' reference='device' target='id' link='show' sortBy='device name'>
 						<TextField source='device name' />
@@ -473,6 +638,20 @@ export const DeviceList: React.FC<ListProps<any>> = (props) => {
 								{record.note || ''}
 							</Box>
 						)}
+					/>
+
+					<FunctionField
+						label={
+							<ClientColumnHeader
+								options={knownClients}
+								selected={selectedClients}
+								onChange={handleClientSelectionChange}
+								loading={knownClientsLoading}
+								counts={clientCounts}
+								unclassifiedCount={unclassifiedCount}
+							/>
+						}
+						render={(record) => <ClientCell deviceId={record.id} />}
 					/>
 
 					<ReferenceField label='Fleet' source='belongs to-application' reference='application' target='id'>
@@ -623,6 +802,120 @@ export const FleetGroupedDeviceList: React.FC = () => {
 	);
 };
 
+const ClientDeviceList: React.FC<{ clientName: string }> = ({ clientName }) => {
+	const { data: allClientTags } = useGetList('device tag', {
+		filter: { 'tag key': 'client' },
+		pagination: { page: 1, perPage: 10000 },
+		sort: { field: 'id', order: 'ASC' },
+	});
+	const { data: allDevicesForFilter } = useGetList('device', {
+		pagination: { page: 1, perPage: 10000 },
+		sort: { field: 'id', order: 'ASC' },
+	});
+
+	const matchingIds = React.useMemo(() => {
+		if (clientName === UNCLASSIFIED_SENTINEL) {
+			const tagged = new Set(
+				(allClientTags ?? [])
+					.filter((t: any) => (t?.value ?? '') !== '')
+					.map((t: any) => String(t.device)),
+			);
+			return (allDevicesForFilter ?? [])
+				.filter((d: any) => !tagged.has(String(d.id)))
+				.map((d: any) => d.id);
+		}
+		return (allClientTags ?? [])
+			.filter((t: any) => (t?.value ?? '') === clientName)
+			.map((t: any) => t.device);
+	}, [allClientTags, allDevicesForFilter, clientName]);
+
+	const filter = {
+		'id@in': matchingIds.length > 0 ? `(${matchingIds.join(',')})` : '(-1)',
+	};
+
+	return (
+		<List
+			resource='device'
+			filter={filter}
+			pagination={<ExtendedPagination />}
+			actions={false}
+		>
+			<Datagrid rowClick={false} bulkActionButtons={<CustomBulkActionButtons />} size='medium'>
+				<ReferenceField label='Name' source='id' reference='device' target='id' link='show' sortBy='device name'>
+					<TextField source='device name' />
+				</ReferenceField>
+				<OnlineField label='Status' source='api heartbeat state' />
+				<FunctionField label='Notes' render={(record) => record.note || ''} />
+				<ReferenceField label='Fleet' source='belongs to-application' reference='application' target='id'>
+					<TextField source='app name' />
+				</ReferenceField>
+				<Toolbar sx={{ background: 'none', padding: '0' }}>
+					<ShowButton variant='outlined' label='' size='small' />
+					<EditButton variant='outlined' label='' size='small' />
+				</Toolbar>
+			</Datagrid>
+		</List>
+	);
+};
+
+export const ClientGroupedDeviceList: React.FC = () => {
+	const { values: clients, isLoading } = useDistinctClientValues();
+	const { data: allClientTags } = useGetList('device tag', {
+		filter: { 'tag key': 'client' },
+		pagination: { page: 1, perPage: 10000 },
+		sort: { field: 'id', order: 'ASC' },
+	});
+	const { data: allDevices } = useGetList('device', {
+		pagination: { page: 1, perPage: 10000 },
+		sort: { field: 'id', order: 'ASC' },
+	});
+
+	if (isLoading) return <div>Loading...</div>;
+
+	const taggedDeviceIds = new Set((allClientTags ?? []).map((t: any) => String(t.device)));
+	const unclassifiedCount = (allDevices ?? []).filter(
+		(d: any) => !taggedDeviceIds.has(String(d.id)),
+	).length;
+	const countsByClient: Record<string, number> = {};
+	(allClientTags ?? []).forEach((t: any) => {
+		const v = t.value ?? '';
+		if (v) countsByClient[v] = (countsByClient[v] ?? 0) + 1;
+	});
+
+	return (
+		<div>
+			<Box sx={{ width: '100%' }}>
+				{clients.map((c) => (
+					<Accordion key={c} sx={{ mb: 1 }}>
+						<AccordionSummary expandIcon={<ExpandMore />}>
+							<Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+								<Typography variant='h6'>{c}</Typography>
+								<Badge badgeContent={countsByClient[c] || 0} color='primary' />
+							</Box>
+						</AccordionSummary>
+						<AccordionDetails>
+							<ClientDeviceList clientName={c} />
+						</AccordionDetails>
+					</Accordion>
+				))}
+				<Accordion sx={{ mb: 1 }}>
+					<AccordionSummary expandIcon={<ExpandMore />}>
+						<Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+							<Typography variant='h6'>
+								<em>Unclassified</em>
+							</Typography>
+							<Badge badgeContent={unclassifiedCount} color='default' />
+						</Box>
+					</AccordionSummary>
+					<AccordionDetails>
+						<ClientDeviceList clientName={UNCLASSIFIED_SENTINEL} />
+					</AccordionDetails>
+				</Accordion>
+			</Box>
+		</div>
+	);
+};
+
 export const DeviceCreate: React.FC = () => {
   const createDevice = useCreateDevice();
   const setServicesForNewDevice = useSetServicesForNewDevice();
@@ -698,8 +991,42 @@ export const DeviceCreate: React.FC = () => {
   );
 };
 
+const ClientInput: React.FC = () => {
+  const record = useRecordContext();
+  const { value: currentClient, isLoading: clientLoading } = useDeviceClientTag(record?.id);
+  const { values: knownClients, isLoading: optionsLoading } = useDistinctClientValues();
+
+  const choices = React.useMemo(() => {
+    const set = new Set<string>(knownClients);
+    if (currentClient) set.add(currentClient);
+    return Array.from(set)
+      .sort((a, b) => a.localeCompare(b))
+      .map((v) => ({ id: v, name: v }));
+  }, [knownClients, currentClient]);
+
+  if (clientLoading || optionsLoading) {
+    return null;
+  }
+
+  return (
+    <AutocompleteInput
+      label='Client'
+      source='__client'
+      choices={choices}
+      defaultValue={currentClient || ''}
+      onCreate={(filter) => {
+        if (!filter) return null;
+        const next = { id: filter, name: filter };
+        return next;
+      }}
+      size='medium'
+      fullWidth
+    />
+  );
+};
+
 export const DeviceEdit: React.FC = () => {
-  const modifyDevice = useModifyDevice();
+  const modifyDevice = useModifyDeviceWithClient();
 
   return (
     <Edit title='Edit Device' actions={false} transform={modifyDevice}>
@@ -711,6 +1038,8 @@ export const DeviceEdit: React.FC = () => {
         </Row>
 
         <TextInput label='Note' source='note' size='large' fullWidth={true} />
+
+        <ClientInput />
 
         <Row>
           <ReferenceInput

@@ -1,6 +1,7 @@
-import { useDataProvider } from 'react-admin';
+import { useDataProvider, useNotify } from 'react-admin';
 import { useGenerateApiKey, useDeleteApiKey } from './apiKey';
 import { deleteAllRelated } from './delete';
+import { useUpsertDeviceClient } from './deviceClient';
 
 export function useCreateDevice() {
   const dataProvider = useDataProvider();
@@ -140,5 +141,29 @@ export function useDeleteDeviceBulk() {
   return async (deviceIds) => {
     const selectedDevices = await dataProvider.getMany('device', { ids: deviceIds });
     return Promise.all(selectedDevices.data.map((device) => deleteDevice(device)));
+  };
+}
+
+export function useModifyDeviceWithClient() {
+  const baseModify = useModifyDevice();
+  const upsertClient = useUpsertDeviceClient();
+  const notify = useNotify();
+
+  return async (data: any) => {
+    const clientValue = data.__client;
+    delete data.__client;
+
+    const result = await baseModify(data);
+
+    if (data.id !== undefined && data.id !== null) {
+      try {
+        await upsertClient(data.id, clientValue);
+      } catch (err) {
+        console.error('Failed to upsert client tag', err);
+        notify('Device saved, but updating the client tag failed', { type: 'warning' });
+      }
+    }
+
+    return result;
   };
 }
