@@ -37,9 +37,15 @@ const ClientColumnHeader: React.FC<ClientColumnHeaderProps> = ({
 
   const filteredOptions = React.useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return options;
-    return options.filter((o) => o.toLowerCase().includes(q));
-  }, [options, search]);
+    const base = q ? options.filter((o) => o.toLowerCase().includes(q)) : options.slice();
+    base.sort((a, b) => {
+      const ca = counts?.[a] ?? 0;
+      const cb = counts?.[b] ?? 0;
+      if (cb !== ca) return cb - ca;
+      return a.localeCompare(b);
+    });
+    return base;
+  }, [options, search, counts]);
 
   const toggle = (value: string) => {
     if (selected.includes(value)) {
