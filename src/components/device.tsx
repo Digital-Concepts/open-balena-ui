@@ -90,6 +90,7 @@ import {
   useUpsertDeviceClient,
 } from '../lib/deviceClient';
 import ClientColumnHeader, { UNCLASSIFIED_SENTINEL } from '../ui/ClientColumnHeader';
+import SetClientBulkButton from '../ui/SetClientBulkButton';
 
 // Get the proper field name for isPinnedOnRelease based on API version
 const isPinnedOnRelease = versions.resource('isPinnedOnRelease', environment.REACT_APP_OPEN_BALENA_API_VERSION);
@@ -224,6 +225,7 @@ const CustomBulkActionButtons: React.FC<DeleteDeviceButtonProps> = (props) => {
 
   return (
     <React.Fragment>
+      <SetClientBulkButton />
       <DeleteDeviceButton size='small' selectedIds={selectedIds} {...props}>
         Delete Selected Devices
       </DeleteDeviceButton>
