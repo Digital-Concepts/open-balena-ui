@@ -25,18 +25,24 @@ beforeEach(() => {
 });
 
 describe('Ad-hoc single-fleet run', () => {
-  it('ad-hoc run: confirm then triggerRun with fleet + window', async () => {
+  it('ad-hoc run: confirm then triggerRun with fleet + window, notifies success via run_id gate', async () => {
     api.triggerRun.mockResolvedValue({ run_id: 'r9' });
-    api.getStatus.mockResolvedValueOnce({ status: 'idle' })   // initial
+    // initial load returns no last_run; after trigger, poll returns completed run with matching id
+    api.getStatus
+      .mockResolvedValueOnce({ status: 'idle', last_run: null })
       .mockResolvedValue({ status: 'idle', last_run: { id: 'r9', result: 'success' } });
     render(<HousekeepingPage />);
     fireEvent.mouseDown(await screen.findByLabelText(/fleet to clean/i));
     fireEvent.click(await screen.findByRole('option', { name: 'MASTER' }));
     fireEvent.change(await screen.findByLabelText(/custom window/i), { target: { value: '14' } });
     fireEvent.click(await screen.findByRole('button', { name: /^run$/i }));
-    // confirm dialog
     fireEvent.click(await screen.findByRole('button', { name: /confirm/i }));
     await waitFor(() => expect(api.triggerRun).toHaveBeenCalledWith({ fleets: ['MASTER'], window_days: 14 }));
+    // poll fires at 3s; wait up to 10s for the gated completion notify
+    await waitFor(
+      () => expect(notify).toHaveBeenCalledWith('Run success', { type: 'success' }),
+      { timeout: 10000 },
+    );
   });
 
   it('ad-hoc run 409 shows already-in-progress', async () => {
@@ -46,7 +52,7 @@ describe('Ad-hoc single-fleet run', () => {
     fireEvent.click(await screen.findByRole('option', { name: 'MASTER' }));
     fireEvent.click(await screen.findByRole('button', { name: /^run$/i }));
     fireEvent.click(await screen.findByRole('button', { name: /confirm/i }));
-    await waitFor(() => expect(notify).toHaveBeenCalledWith(expect.stringMatching(/in progress/i), expect.anything()));
+    await waitFor(() => expect(notify).toHaveBeenCalledWith(expect.stringMatching(/in progress/i), { type: 'warning' }));
   });
 });
 

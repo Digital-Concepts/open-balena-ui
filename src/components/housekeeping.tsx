@@ -38,16 +38,21 @@ export const HousekeepingPage: React.FC = () => {
     setConfirmOpen(false);
     setRunning(true);
     try {
-      await api.triggerRun({ fleets: [selectedFleet], window_days: windowDays });
+      const { run_id } = await api.triggerRun({ fleets: [selectedFleet], window_days: windowDays });
       const deadline = Date.now() + 5 * 60 * 1000;
       pollRef.current = setInterval(async () => {
         try {
           const s: any = await api.getStatus();
-          if (s.status !== 'running' || Date.now() >= deadline) {
+          if (s.status !== 'running' && s.last_run?.id === run_id) {
             if (pollRef.current) clearInterval(pollRef.current);
             pollRef.current = null;
             setRunning(false);
-            if (s.last_run?.result) notify(s.last_run.result, { type: 'success' });
+            notify(`Run ${s.last_run.result}`, { type: s.last_run.result === 'success' ? 'success' : 'warning' });
+          } else if (Date.now() >= deadline) {
+            if (pollRef.current) clearInterval(pollRef.current);
+            pollRef.current = null;
+            setRunning(false);
+            notify('Run still in progress — check Run history', { type: 'info' });
           }
         } catch {
           if (pollRef.current) clearInterval(pollRef.current);
