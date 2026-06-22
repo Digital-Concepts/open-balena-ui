@@ -33,7 +33,7 @@ describe('HousekeepingPage status + config', () => {
   it('loads config values and fleet checkboxes (gorgon excluded)', async () => {
     render(<HousekeepingPage />);
     expect(await screen.findByDisplayValue('0 3 * * *')).toBeInTheDocument();
-    expect(await screen.findByDisplayValue('30')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Window (days)')).toHaveValue(30);
     // gorgon checkbox checked (excluded), MASTER unchecked
     const gorgon = await screen.findByLabelText('gorgon');
     const master = await screen.findByLabelText('MASTER');
@@ -44,9 +44,11 @@ describe('HousekeepingPage status + config', () => {
   it('save calls putConfig with the full config', async () => {
     api.putConfig.mockResolvedValue({});
     render(<HousekeepingPage />);
+    fireEvent.change(await screen.findByLabelText('Window (days)'), { target: { value: '14' } });
     fireEvent.click(await screen.findByRole('button', { name: /save config/i }));
     await waitFor(() => expect(api.putConfig).toHaveBeenCalled());
     const sent = api.putConfig.mock.calls[0][0];
+    expect(sent.release_cleanup.window_days).toBe(14);
     expect(sent.schedule).toBe('0 3 * * *');
     expect(sent.release_cleanup.exclude_fleets).toEqual(['gorgon']);
     expect(sent.registry_gc.retention_keep_per_fleet).toBe(10);
