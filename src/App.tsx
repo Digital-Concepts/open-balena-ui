@@ -35,6 +35,7 @@ import serviceLabel from './components/serviceLabel';
 import user from './components/user';
 import userKey from './components/userKey';
 import serialList from './components/serialList';
+import housekeeping from './components/housekeeping';
 import DeviceDashboard from './dashboards/device';
 import MainDashboard from './dashboards/main';
 import postgrestDataProvider from './dataProvider/postgrestDataProvider';
@@ -233,6 +234,7 @@ const OpenBalenaAdmin: React.FC = () => {
       <Resource name='menu-release' options={{ label: 'Releases', isMenuParent: true }} />
       <Resource name='release' options={{ label: 'Releases', menuParent: 'menu-release' }} {...release} />
       <Resource name='release tag' options={{ label: 'Tags', menuParent: 'menu-release' }} {...releaseTag} />
+      <Resource name='housekeeping' options={{ label: 'Housekeeping', menuParent: 'menu-release' }} {...housekeeping} />
 
       <Resource name='menu-serial-db' options={{ label: 'Serial DB', isMenuParent: true }} />
       <Resource name='gateways' options={{ label: 'Gateways', menuParent: 'menu-serial-db' }} {...serialList} />
