@@ -56,6 +56,30 @@ describe('Ad-hoc single-fleet run', () => {
   });
 });
 
+describe('Run history + log dialog', () => {
+  it('renders run history rows', async () => {
+    api.getRuns.mockResolvedValue([{ id: 'r1', started_at: '2026-06-22T03:00:00Z', ended_at: '2026-06-22T03:05:00Z', result: 'success', phase1: { deleted: 3 } }]);
+    render(<HousekeepingPage />);
+    expect(await screen.findByText('r1')).toBeInTheDocument();
+    expect(await screen.findByText('success')).toBeInTheDocument();
+  });
+
+  it('row click loads + shows the run log', async () => {
+    api.getRuns.mockResolvedValue([{ id: 'r1', started_at: 'x', ended_at: 'y', result: 'success' }]);
+    api.getRunLog.mockResolvedValue('LOG LINE A\nLOG LINE B');
+    render(<HousekeepingPage />);
+    fireEvent.click(await screen.findByText('r1'));
+    expect(await screen.findByText(/LOG LINE A/)).toBeInTheDocument();
+    expect(api.getRunLog).toHaveBeenCalledWith('r1');
+  });
+
+  it('renders audit rows', async () => {
+    api.getAudit.mockResolvedValue([{ ts: '2026-06-22T03:00:00Z', type: 'release-deleted', fleet: 'MASTER', commit: 'abc' }]);
+    render(<HousekeepingPage />);
+    expect(await screen.findByText('release-deleted')).toBeInTheDocument();
+  });
+});
+
 describe('HousekeepingPage status + config', () => {
   it('shows status idle and next scheduled', async () => {
     render(<HousekeepingPage />);

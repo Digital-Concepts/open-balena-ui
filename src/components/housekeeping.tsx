@@ -4,7 +4,7 @@ import {
   Card, CardContent, Typography, TextField, FormControlLabel, Checkbox,
   Button, Chip, Box, Select, MenuItem, FormControl, InputLabel,
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
-  CircularProgress,
+  CircularProgress, Table, TableHead, TableBody, TableRow, TableCell,
 } from '@mui/material';
 import { useHousekeeperApi } from '../lib/housekeeperApi';
 
@@ -19,6 +19,12 @@ export const HousekeepingPage: React.FC = () => {
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [running, setRunning] = React.useState(false);
   const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  const [runs, setRuns] = React.useState<any[]>([]);
+  const [logOpen, setLogOpen] = React.useState(false);
+  const [logText, setLogText] = React.useState('');
+  const [audit, setAudit] = React.useState<any[]>([]);
+  const [auditType, setAuditType] = React.useState('');
+  const [auditSince, setAuditSince] = React.useState('');
 
   React.useEffect(() => {
     let active = true;
@@ -27,6 +33,8 @@ export const HousekeepingPage: React.FC = () => {
     const t = setInterval(loadStatus, 10000);
     api.getConfig().then((c: any) => { if (active) setCfg(c); }).catch(() => {});
     api.getFleets().then((f: any) => { if (active) setFleets(f); }).catch(() => {});
+    api.getRuns().then((r: any) => { if (active) setRuns(r); }).catch(() => {});
+    api.getAudit({}).then((a: any) => { if (active) setAudit(a); }).catch(() => {});
     return () => {
       active = false;
       clearInterval(t);
@@ -95,6 +103,24 @@ export const HousekeepingPage: React.FC = () => {
       notify('Config saved', { type: 'success' });
     } catch (e: any) {
       notify(e?.response?.data?.errors?.join('; ') || 'Save failed', { type: 'error' });
+    }
+  };
+
+  const handleRunRowClick = async (id: string) => {
+    const text = await api.getRunLog(id);
+    setLogText(text);
+    setLogOpen(true);
+  };
+
+  const loadAudit = async (type: string, since: string) => {
+    try {
+      const params: Record<string, string> = {};
+      if (type) params.type = type;
+      if (since) params.since = since;
+      const a = await api.getAudit(params);
+      setAudit(a);
+    } catch {
+      // ignore
     }
   };
 
@@ -170,6 +196,97 @@ export const HousekeepingPage: React.FC = () => {
           <Button onClick={handleConfirmRun} color="warning" variant="contained">Confirm</Button>
         </DialogActions>
       </Dialog>
+
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          <Typography variant="h6" sx={{ mb: 2 }}>Run history</Typography>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>ID</TableCell>
+                <TableCell>Started</TableCell>
+                <TableCell>Ended</TableCell>
+                <TableCell>Result</TableCell>
+                <TableCell>Counts</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {runs.map((run) => (
+                <TableRow
+                  key={run.id}
+                  hover
+                  sx={{ cursor: 'pointer' }}
+                  onClick={() => handleRunRowClick(run.id)}
+                >
+                  <TableCell>{run.id}</TableCell>
+                  <TableCell>{run.started_at}</TableCell>
+                  <TableCell>{run.ended_at}</TableCell>
+                  <TableCell>{run.result}</TableCell>
+                  <TableCell>{run.phase1 ? `${run.phase1.deleted ?? 0} deleted` : ''}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Dialog open={logOpen} onClose={() => setLogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Run log</DialogTitle>
+        <DialogContent>
+          <pre style={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{logText}</pre>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          <Typography variant="h6" sx={{ mb: 2 }}>Audit</Typography>
+          <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+            <TextField
+              label="Type filter"
+              value={auditType}
+              onChange={(e) => {
+                setAuditType(e.target.value);
+                loadAudit(e.target.value, auditSince);
+              }}
+              inputProps={{ 'aria-label': 'Type filter' }}
+              size="small"
+            />
+            <TextField
+              label="Since"
+              value={auditSince}
+              onChange={(e) => {
+                setAuditSince(e.target.value);
+                loadAudit(auditType, e.target.value);
+              }}
+              inputProps={{ 'aria-label': 'Since' }}
+              size="small"
+            />
+          </Box>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Timestamp</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell>Fleet</TableCell>
+                <TableCell>Commit</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {audit.map((row, i) => (
+                <TableRow key={i}>
+                  <TableCell>{row.ts}</TableCell>
+                  <TableCell>{row.type}</TableCell>
+                  <TableCell>{row.fleet}</TableCell>
+                  <TableCell>{row.commit}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       {cfg && (
         <Card>
