@@ -30,9 +30,26 @@ There are a number of environment variables used to configure the ui:
 
 - `REACT_APP_BANNER_IMAGE` The URL of a custom banner image to use on the main dashboard.
 
+- `HOUSEKEEPER_URL` The URL of the balena-housekeeper service instance (default: `http://balena-housekeeper:7000`)
+
+- `HOUSEKEEPER_TOKEN` The bearer token for authenticating requests to the balena-housekeeper API. Must match the 
+  housekeeper container's `AUTH_TOKEN_FILE` secret. Token is never exposed to the browser; proxied server-side via
+  `server/routes/housekeeper.ts`.
+
 These variables can be supplied through the standard Vite `.env` files (for example `.env`, `.env.local`, or
 `.env.<mode>` when invoking `vite --mode <mode>`). The active mode is already set for the provided `npm run dev` and
 `npm run dev:local` scripts.
+
+## Housekeeping Page
+
+The Housekeeping page (`#/housekeeping`) provides administrative management of the balena-housekeeper service, 
+accessible under the "Releases" menu group. The page displays service status, allows editing of cleanup configuration 
+(schedule, release-age window, per-fleet retention rules, and fleet exclusions), supports ad-hoc single-fleet cleanup 
+with custom age windows, and includes run history and audit log review.
+
+**Network Requirements**: The balena-housekeeper container must be reachable from the admin UI on the `webui` docker 
+network as `balena-housekeeper` (configured via the `HOUSEKEEPER_URL` environment variable). The housekeeper API 
+authentication token (`HOUSEKEEPER_TOKEN`) is proxied server-side and never exposed to the browser.
 
 ## Exposing Device Connection Endpoints
 
