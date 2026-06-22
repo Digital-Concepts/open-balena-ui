@@ -107,9 +107,13 @@ export const HousekeepingPage: React.FC = () => {
   };
 
   const handleRunRowClick = async (id: string) => {
-    const text = await api.getRunLog(id);
-    setLogText(text);
-    setLogOpen(true);
+    try {
+      const text = await api.getRunLog(id);
+      setLogText(text);
+      setLogOpen(true);
+    } catch {
+      notify('Failed to load run log', { type: 'error' });
+    }
   };
 
   const loadAudit = async (type: string, since: string) => {

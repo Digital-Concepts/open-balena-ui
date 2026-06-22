@@ -73,6 +73,15 @@ describe('Run history + log dialog', () => {
     expect(api.getRunLog).toHaveBeenCalledWith('r1');
   });
 
+  it('row click getRunLog error notifies + does not open log dialog', async () => {
+    api.getRuns.mockResolvedValue([{ id: 'r1', started_at: 'x', ended_at: 'y', result: 'success' }]);
+    api.getRunLog.mockRejectedValue(new Error('boom'));
+    render(<HousekeepingPage />);
+    fireEvent.click(await screen.findByText('r1'));
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('Failed to load run log', { type: 'error' }));
+    expect(screen.queryByText(/LOG LINE/)).not.toBeInTheDocument();
+  });
+
   it('renders audit rows', async () => {
     api.getAudit.mockResolvedValue([{ ts: '2026-06-22T03:00:00Z', type: 'release-deleted', fleet: 'MASTER', commit: 'abc' }]);
     render(<HousekeepingPage />);
