@@ -85,6 +85,26 @@ describe('housekeeper BFF', () => {
     expect(res.body.fleets[0].name).toBe('MASTER');
   });
 
+  it('GET /housekeeper/fleets asserts URL + auth header', async () => {
+    mockFetch(200, { fleets: [{ name: 'MASTER', id: 17 }] });
+    const res = await request(app).get('/housekeeper/fleets');
+    expect(res.status).toBe(200);
+    const call = (global.fetch as any).mock.calls[0];
+    expect(call[0]).toBe('http://hk:7000/fleets');
+    expect(call[1].headers.Authorization).toBe('Bearer hk-token');
+  });
+
+  it('GET /housekeeper/audit forwards query params', async () => {
+    mockFetch(200, []);
+    const res = await request(app).get('/housekeeper/audit?type=release-deleted&fleet=MASTER&since=2026-06-01&limit=50');
+    expect(res.status).toBe(200);
+    const url = (global.fetch as any).mock.calls[0][0];
+    expect(url).toContain('type=release-deleted');
+    expect(url).toContain('fleet=MASTER');
+    expect(url).toContain('since=2026-06-01');
+    expect(url).toContain('limit=50');
+  });
+
   it('missing HOUSEKEEPER_TOKEN -> 500', async () => {
     delete process.env.HOUSEKEEPER_TOKEN;
     const res = await request(app).get('/housekeeper/status');
