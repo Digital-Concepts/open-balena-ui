@@ -87,6 +87,17 @@ describe('Run history + log dialog', () => {
     render(<HousekeepingPage />);
     expect(await screen.findByText('release-deleted')).toBeInTheDocument();
   });
+
+  it('audit toggle collapses and expands the audit section', async () => {
+    api.getAudit.mockResolvedValue([{ ts: '2026-06-22T03:00:00Z', type: 'release-deleted', fleet: 'MASTER', commit: 'abc' }]);
+    render(<HousekeepingPage />);
+    // default open — toggle shows "collapse audit"
+    const collapseBtn = await screen.findByLabelText(/collapse audit/i);
+    expect(collapseBtn).toBeInTheDocument();
+    fireEvent.click(collapseBtn);
+    // after click — label flips to "expand audit"
+    expect(await screen.findByLabelText(/expand audit/i)).toBeInTheDocument();
+  });
 });
 
 describe('HousekeepingPage status + config', () => {

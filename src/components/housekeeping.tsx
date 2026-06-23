@@ -5,7 +5,10 @@ import {
   Button, Chip, Box, Select, MenuItem, FormControl, InputLabel,
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
   CircularProgress, Table, TableHead, TableBody, TableRow, TableCell,
+  Collapse,
 } from '@mui/material';
+import ExpandLess from '@mui/icons-material/ExpandLess';
+import ExpandMore from '@mui/icons-material/ExpandMore';
 import { useHousekeeperApi } from '../lib/housekeeperApi';
 
 export const HousekeepingPage: React.FC = () => {
@@ -25,6 +28,7 @@ export const HousekeepingPage: React.FC = () => {
   const [audit, setAudit] = React.useState<any[]>([]);
   const [auditType, setAuditType] = React.useState('');
   const [auditSince, setAuditSince] = React.useState('');
+  const [auditOpen, setAuditOpen] = React.useState(true);
 
   React.useEffect(() => {
     let active = true;
@@ -244,56 +248,8 @@ export const HousekeepingPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <Typography variant="h6" sx={{ mb: 2 }}>Audit</Typography>
-          <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-            <TextField
-              label="Type filter"
-              value={auditType}
-              onChange={(e) => {
-                setAuditType(e.target.value);
-                loadAudit(e.target.value, auditSince);
-              }}
-              inputProps={{ 'aria-label': 'Type filter' }}
-              size="small"
-            />
-            <TextField
-              label="Since"
-              value={auditSince}
-              onChange={(e) => {
-                setAuditSince(e.target.value);
-                loadAudit(auditType, e.target.value);
-              }}
-              inputProps={{ 'aria-label': 'Since' }}
-              size="small"
-            />
-          </Box>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Timestamp</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Fleet</TableCell>
-                <TableCell>Commit</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {audit.map((row, i) => (
-                <TableRow key={i}>
-                  <TableCell>{row.ts}</TableCell>
-                  <TableCell>{row.type}</TableCell>
-                  <TableCell>{row.fleet}</TableCell>
-                  <TableCell>{row.commit}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
       {cfg && (
-        <Card>
+        <Card sx={{ mb: 2 }}>
           <CardContent>
             <Typography variant="h6" sx={{ mb: 2 }}>Configuration</Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 480 }}>
@@ -349,6 +305,66 @@ export const HousekeepingPage: React.FC = () => {
           </CardContent>
         </Card>
       )}
+
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="h6">Audit</Typography>
+            <Button
+              size="small"
+              aria-label={auditOpen ? 'collapse audit' : 'expand audit'}
+              onClick={() => setAuditOpen((o) => !o)}
+              sx={{ minWidth: 0 }}
+            >
+              {auditOpen ? <ExpandLess /> : <ExpandMore />}
+            </Button>
+          </Box>
+          <Collapse in={auditOpen}>
+            <Box sx={{ display: 'flex', gap: 2, mb: 2, mt: 2 }}>
+              <TextField
+                label="Type filter"
+                value={auditType}
+                onChange={(e) => {
+                  setAuditType(e.target.value);
+                  loadAudit(e.target.value, auditSince);
+                }}
+                inputProps={{ 'aria-label': 'Type filter' }}
+                size="small"
+              />
+              <TextField
+                label="Since"
+                value={auditSince}
+                onChange={(e) => {
+                  setAuditSince(e.target.value);
+                  loadAudit(auditType, e.target.value);
+                }}
+                inputProps={{ 'aria-label': 'Since' }}
+                size="small"
+              />
+            </Box>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Timestamp</TableCell>
+                  <TableCell>Type</TableCell>
+                  <TableCell>Fleet</TableCell>
+                  <TableCell>Commit</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {audit.map((row, i) => (
+                  <TableRow key={i}>
+                    <TableCell>{row.ts}</TableCell>
+                    <TableCell>{row.type}</TableCell>
+                    <TableCell>{row.fleet}</TableCell>
+                    <TableCell>{row.commit}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Collapse>
+        </CardContent>
+      </Card>
     </Box>
   );
 };
