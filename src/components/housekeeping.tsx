@@ -282,7 +282,7 @@ export const HousekeepingPage: React.FC = () => {
               />
             </Box>
             <Typography sx={{ mt: 2, mb: 1 }}>Exclude fleets from scheduled cleanup:</Typography>
-            <Box>
+            <Box sx={{ display: 'grid', gridAutoFlow: 'column', gridTemplateRows: 'repeat(5, auto)', columnGap: 3, rowGap: 0.5, width: 'fit-content' }}>
               {fleets.map((f) => (
                 <FormControlLabel
                   key={f.id}
