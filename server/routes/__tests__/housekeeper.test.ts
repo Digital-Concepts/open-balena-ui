@@ -4,9 +4,7 @@ import express from 'express';
 import request from 'supertest';
 import housekeeperRoutes from '../housekeeper';
 
-// authorize uses jose jwtVerify with OPEN_BALENA_JWT_SECRET (HS256). Easiest: set a
-// secret and pass a token authorize accepts. To avoid crypto in tests, mock the
-// middleware module so authorize is a pass-through and dosProtect is empty.
+// Stub the auth + rate-limit middleware so these tests exercise the proxy logic in isolation.
 vi.mock('../../middleware', () => ({
   authorize: (_req: any, _res: any, next: any) => next(),
   dosProtect: [],
