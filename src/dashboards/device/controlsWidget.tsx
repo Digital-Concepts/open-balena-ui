@@ -95,7 +95,6 @@ const ControlsWidget: React.FC = () => {
 				body: JSON.stringify({
 					uuid: device.uuid,
 					name: device['device name']?.split('-')[0],
-					configPassword: device['device name'],
 				}),
 			});
 			if (response.ok) {
@@ -130,7 +129,6 @@ const ControlsWidget: React.FC = () => {
 				},
 				body: JSON.stringify({
 					uuid: device.uuid,
-					password: device['device name'],
 					logLevels: logLevel,
 				}),
 			});
@@ -158,7 +156,6 @@ const ControlsWidget: React.FC = () => {
 				},
 				body: JSON.stringify({
 					uuid: device.uuid,
-					configPassword: device['device name'],
 					status,
 				}),
 			});
@@ -191,7 +188,6 @@ const ControlsWidget: React.FC = () => {
 			}
 			formData.append('uuid', device.uuid);
 			formData.append('name', device['device name']?.split('-')[0] ?? '');
-			formData.append('configPassword', device['device name']);
 
 			const session = authProvider?.getSession?.();
 			if (!session?.jwt) return;
@@ -224,7 +220,6 @@ const ControlsWidget: React.FC = () => {
 				body: JSON.stringify({
 					uuid: device.uuid,
 					name: device['device name']?.split('-')[0],
-					configPassword: device['device name'],
 				}),
 			});
 			if (response.ok) {
@@ -260,7 +255,6 @@ const ControlsWidget: React.FC = () => {
 				body: JSON.stringify({
 					uuid: device.uuid,
 					name: device['device name']?.split('-')[0],
-					configPassword: device['device name'],
 				}),
 			});
 			if (response.ok) {
@@ -320,7 +314,6 @@ const ControlsWidget: React.FC = () => {
 				},
 				body: JSON.stringify({
 					uuid: device.uuid,
-					configPassword: device['device name'],
 				}),
 			});
 			if (response.ok) {
