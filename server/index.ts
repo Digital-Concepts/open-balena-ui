@@ -157,25 +157,22 @@ app.post('/download-logs', async (req: Request, res: Response) => {
     await setSshState(uuid, 'on', sessionDir);
     const handle = await openTunnel(uuid, '12738:127.0.0.1', sessionDir);
     tunnelProcess = handle.tunnelProcess;
-    const downloadPath = `/tmp/sessions/${uuid}/logs_${Date.now()}`;
-    fs.mkdirSync(downloadPath, { recursive: true });
-    // Single-Quotes um Remote-Glob, sonst expandiert die LOKALE Shell.
-    // *.log* deckt aktuelle (*.log) und rotierte Logs (*.log.0..N) ab.
-    const scpCommand = `scp -i /certs/tunnelKey/tunnelKey -P ${handle.tunnelPort} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null 'root@127.0.0.1:/var/log/dcgw/*.log*' ${downloadPath}/`;
-    await new Promise<void>((resolve, reject) => {
-      exec(scpCommand, (error) => (error ? reject(error) : resolve()));
-    });
-    const zipFile = `/tmp/sessions/${uuid}/logs_${Date.now()}.zip`;
-    await new Promise<void>((resolve, reject) => {
-      exec(`cd ${downloadPath} && zip -r ${zipFile} .`, (error) => (error ? reject(error) : resolve()));
-    });
-    res.setHeader('Content-Disposition', `attachment; filename="logs_${name}.zip"`);
-    res.setHeader('Content-Type', 'application/zip');
-    const fileStream = fs.createReadStream(zipFile);
-    fileStream.pipe(res);
-    fileStream.on('end', () => {
-      fs.rmSync(downloadPath, { recursive: true, force: true });
-      fs.unlinkSync(zipFile);
+    res.setHeader('Content-Disposition', `attachment; filename="logs_${name}.tar.gz"`);
+    res.setHeader('Content-Type', 'application/gzip');
+    // Compress on the device and stream the archive out: only the gzipped
+    // bytes cross the tunnel, not the raw log files.
+    const child = spawn('ssh', [
+      '-i', '/certs/tunnelKey/tunnelKey',
+      '-p', String(handle.tunnelPort),
+      '-o', 'StrictHostKeyChecking=no',
+      '-o', 'UserKnownHostsFile=/dev/null',
+      'root@127.0.0.1', 'tar czf - -C /var/log/dcgw .',
+    ]);
+    child.stdout.pipe(res);
+    let stderr = '';
+    child.stderr.on('data', (d) => { stderr += d.toString(); });
+    child.on('close', (code) => {
+      if (code !== 0) console.error(`log archive failed (exit ${code}): ${stderr}`);
       void (async () => {
         try {
           await setSshState(uuid, 'off', sessionDir!);
@@ -186,6 +183,8 @@ app.post('/download-logs', async (req: Request, res: Response) => {
         }
       })();
     });
+    // If the client aborts mid-download, stop the remote tar.
+    res.on('close', () => { if (child.exitCode === null) child.kill(); });
   } catch (error) {
     cleanupTunnelAndSession(tunnelProcess, sessionDir);
     console.error('Error during log download', error);
