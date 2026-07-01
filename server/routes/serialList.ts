@@ -107,4 +107,64 @@ router.post('/registerGateway', ...dosProtect, authorize, async (req: Request, r
   }
 });
 
+
+router.post('/deleteGateway', ...dosProtect, authorize, async (req: Request, res: Response) => {
+  try {
+    const { cpu_serial } = req.body;
+
+    if (!cpu_serial) {
+      return res.status(400).json({
+        success: false,
+        message: 'CPU Serial is required',
+      });
+    }
+
+    // Guard against path/URL injection: cpu_serial is interpolated into the
+    // outbound Middleman path. Real serials are hex (e.g. 052170B0) or
+    // imported_<eurid>, so restrict to a safe character set.
+    if (!/^[A-Za-z0-9_]{1,64}$/.test(cpu_serial)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid CPU Serial format',
+      });
+    }
+
+    if (!token) {
+      return res.status(500).json({
+        success: false,
+        message: 'API token not configured',
+      });
+    }
+
+    const middlemanUrl = process.env.MIDDLEMAN_URL;
+
+    const response = await fetch(`${middlemanUrl}/api/gateways/${encodeURIComponent(cpu_serial)}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: token,
+      },
+    });
+
+    const responseText = await response.text();
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        success: false,
+        message: responseText,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Gateway unregistered successfully',
+      data: responseText,
+    });
+  } catch (error: any) {
+    console.error('Error unregistering gateway:', error);
+    res.status(500).json({
+      success: false,
+      message: error?.message,
+    });
+  }
+});
 export default router;

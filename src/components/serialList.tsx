@@ -32,11 +32,13 @@ interface ProductIdChoice {
 export const SerialList = () => {
   const [productIdChoices, setProductIdChoices] = React.useState<ProductIdChoice[]>([]);
   const [openDialog, setOpenDialog] = React.useState(false);
+  const [openDeleteDialog, setOpenDeleteDialog] = React.useState(false);
   const [eurid, setEurid] = React.useState('');
   const [serial, setSerial] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const refresh = useRefresh();
   const notify = useNotify();
+  const [cpuSerial, setCpuSerial] = React.useState('');
 
   const handleCreateSerial = async () => {
     if (!eurid || !serial) {
@@ -80,6 +82,46 @@ export const SerialList = () => {
         refresh();
       } else {
         notify(`Failed to register: ${data.message}`, { type: 'error' });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      notify(`Error: ${message}`, { type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteGateway = async () => {
+    if (!cpuSerial ) {
+      notify('Please fill in CPU Serial field', { type: 'error' });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const authToken = localStorage.getItem('auth');
+
+      const response = await fetch('/deleteGateway', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          cpu_serial: cpuSerial,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        notify('Serial number unregistered successfully', { type: 'success' });
+        setOpenDeleteDialog(false);
+        setCpuSerial('');
+        setSerial('');
+        refresh();
+      } else {
+        notify(`Failed to unregister: ${data.message}`, { type: 'error' });
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -182,20 +224,24 @@ export const SerialList = () => {
         <Typography variant="h5">
           Recent Gateways (Last 7 Days)
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => setOpenDialog(true)}
-          sx={{
-            backgroundColor: '#2A506F',
-            height: '40px',
-            '&:hover': {
-              backgroundColor: '#34607F',
-            },
-          }}
-        >
-          Register New Gateway
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => setOpenDialog(true)}
+            sx={{ height: '40px' }}
+          >
+            Register New Gateway
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => setOpenDeleteDialog(true)}
+            sx={{ height: '40px' }}
+          >
+            Delete Gateway Registration
+          </Button>
+        </Box>
       </Box>
 
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
@@ -245,6 +291,43 @@ export const SerialList = () => {
             }}
           >
             {loading ? 'Registering...' : 'Register'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Delete Gateway Registration</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <MuiTextField
+              label="cpu_serial"
+              value={cpuSerial}
+              onChange={(e) => setCpuSerial(e.target.value)}
+              fullWidth
+              required
+              placeholder="e.g., 10000000fdf29d2d"
+            />
+            <Typography variant="caption" color="text.secondary">
+              Please provide the CPU Serial of the gateway you wish to unregister. This action cannot be undone.
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDeleteDialog(false)} disabled={loading}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteGateway}
+            variant="contained"
+            disabled={loading}
+            sx={{
+              backgroundColor: '#2A506F',
+              '&:hover': {
+                backgroundColor: '#34607F',
+              },
+            }}
+          >
+            {loading ? 'Unregistering...' : 'Unregister'}
           </Button>
         </DialogActions>
       </Dialog>
