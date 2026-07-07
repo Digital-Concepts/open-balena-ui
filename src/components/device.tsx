@@ -95,6 +95,46 @@ import SetClientBulkButton from '../ui/SetClientBulkButton';
 // Get the proper field name for isPinnedOnRelease based on API version
 const isPinnedOnRelease = versions.resource('isPinnedOnRelease', environment.REACT_APP_OPEN_BALENA_API_VERSION);
 
+// Target Release dropdown that shows each release's semver alongside all of its tags.
+// Release tags live in a separate `release tag` resource keyed by `release`, so they are
+// fetched here and joined onto each release option by id.
+const TargetReleaseInput: React.FC<{ applicationId: string | number }> = ({ applicationId }) => {
+  const { data: releaseTags } = useGetList('release tag', {
+    pagination: { page: 1, perPage: 10000 },
+    sort: { field: 'id', order: 'ASC' },
+  });
+
+  const tagsByRelease = React.useMemo(() => {
+    const map = new Map<string, string>();
+    (releaseTags ?? []).forEach((t: any) => {
+      const releaseId = String(t.release);
+      const entry = `${t['tag key']}: ${t.value}`;
+      map.set(releaseId, map.has(releaseId) ? `${map.get(releaseId)}, ${entry}` : entry);
+    });
+    return map;
+  }, [releaseTags]);
+
+  return (
+    <ReferenceInput
+      label='Target Release'
+      source={isPinnedOnRelease}
+      reference='release'
+      target='id'
+      filter={{ 'belongs to-application': applicationId }}
+      allowEmpty
+    >
+      <SelectInput
+        optionText={(o) => {
+          const semver = getSemver(o);
+          const tags = tagsByRelease.get(String(o.id));
+          return tags ? `${semver} — ${tags}` : semver;
+        }}
+        optionValue='id'
+      />
+    </ReferenceInput>
+  );
+};
+
 export const OnlineField: React.FC<Omit<FunctionFieldProps<any>, 'render'>> = (props) => {
   const theme = useTheme();
 
@@ -972,16 +1012,7 @@ export const DeviceCreate: React.FC = () => {
           <FormDataConsumer>
             {({ formData, ...rest }) =>
               formData['belongs to-application'] && (
-                <ReferenceInput
-                  label='Target Release'
-                  source={isPinnedOnRelease}
-                  reference='release'
-                  target='id'
-                  filter={{ 'belongs to-application': formData['belongs to-application'] }}
-                  allowEmpty
-                >
-                  <SelectInput optionText={(o) => getSemver(o)} optionValue='id' />
-                </ReferenceInput>
+                <TargetReleaseInput applicationId={formData['belongs to-application']} />
               )
             }
           </FormDataConsumer>
@@ -1082,16 +1113,7 @@ export const DeviceEdit: React.FC = () => {
           <FormDataConsumer>
             {({ formData, ...rest }) =>
               formData['belongs to-application'] && (
-                <ReferenceInput
-                  label='Target Release'
-                  source={isPinnedOnRelease}
-                  reference='release'
-                  target='id'
-                  filter={{ 'belongs to-application': formData['belongs to-application'] }}
-                  allowEmpty
-                >
-                  <SelectInput optionText={(o) => getSemver(o)} optionValue='id' />
-                </ReferenceInput>
+                <TargetReleaseInput applicationId={formData['belongs to-application']} />
               )
             }
           </FormDataConsumer>
