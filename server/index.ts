@@ -110,11 +110,7 @@ class HttpError extends Error {
   }
 }
 
-// Fixed Basic header for the device config API. A header must be present or the
-// request is rejected with 401; the credential value itself is not validated.
-const TRUSTED_LOCAL_AUTH = `Basic ${Buffer.from('ConfigUser:local').toString('base64')}`;
-
-async function setSshState(uuid: string, state: 'on' | 'off', sessionDir: string): Promise<any> {
+async function setSshState(uuid: string, configPassword: string, state: 'on' | 'off', sessionDir: string): Promise<any> {
   let tunnelProcess: ChildProcess | undefined;
   try {
     const handle = await openTunnel(uuid, '8099:127.0.0.1', sessionDir);
@@ -123,7 +119,7 @@ async function setSshState(uuid: string, state: 'on' | 'off', sessionDir: string
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: TRUSTED_LOCAL_AUTH,
+        Authorization: `Basic ${Buffer.from(`ConfigUser:${configPassword}`).toString('base64')}`,
       },
       body: JSON.stringify({ state }),
     });
@@ -149,12 +145,12 @@ app.post('/download-logs', async (req: Request, res: Response) => {
   let tunnelProcess: ChildProcess | undefined;
   let sessionDir: string | undefined;
   try {
-    const { uuid, name } = req.body;
+    const { uuid, name, configPassword } = req.body;
     const token = extractToken(req);
     jwt.verify(token, process.env.OPEN_BALENA_JWT_SECRET as string);
     sessionDir = await createSessionDir(uuid);
     await balenaLogin(token, sessionDir);
-    await setSshState(uuid, 'on', sessionDir);
+    await setSshState(uuid, configPassword, 'on', sessionDir);
     const handle = await openTunnel(uuid, '12738:127.0.0.1', sessionDir);
     tunnelProcess = handle.tunnelProcess;
     res.setHeader('Content-Disposition', `attachment; filename="logs_${name}.tar.gz"`);
@@ -175,7 +171,7 @@ app.post('/download-logs', async (req: Request, res: Response) => {
       if (code !== 0) console.error(`log archive failed (exit ${code}): ${stderr}`);
       void (async () => {
         try {
-          await setSshState(uuid, 'off', sessionDir!);
+          await setSshState(uuid, configPassword, 'off', sessionDir!);
         } catch (err: any) {
           console.error('Failed to disable SSH after logs:', err?.message || err);
         } finally {
@@ -196,7 +192,7 @@ app.post('/log-level', async (req: Request, res: Response) => {
   let tunnelProcess: ChildProcess | undefined;
   let sessionDir: string | undefined;
   try {
-    const { uuid, logLevels } = req.body;
+    const { uuid, password, logLevels } = req.body;
     const token = extractToken(req);
     jwt.verify(token, process.env.OPEN_BALENA_JWT_SECRET as string);
     sessionDir = await createSessionDir(uuid);
@@ -207,7 +203,7 @@ app.post('/log-level', async (req: Request, res: Response) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: TRUSTED_LOCAL_AUTH,
+        Authorization: `Basic ${Buffer.from(`ConfigUser:${password}`).toString('base64')}`,
       },
       body: JSON.stringify({ logLevel: logLevels }),
     });
@@ -227,12 +223,12 @@ app.post('/log-level', async (req: Request, res: Response) => {
 app.post('/control-ssh', async (req: Request, res: Response) => {
   let sessionDir: string | undefined;
   try {
-    const { uuid, status } = req.body;
+    const { uuid, configPassword, status } = req.body;
     const token = extractToken(req);
     jwt.verify(token, process.env.OPEN_BALENA_JWT_SECRET as string);
     sessionDir = await createSessionDir(uuid);
     await balenaLogin(token, sessionDir);
-    const responseData = await setSshState(uuid, status, sessionDir);
+    const responseData = await setSshState(uuid, configPassword, status, sessionDir);
     res.json({ success: true, data: responseData });
   } catch (error: any) {
     const status = error instanceof HttpError ? error.status : 500;
@@ -246,12 +242,12 @@ app.post('/send-files', upload.array('files'), async (req: Request, res: Respons
   let tunnelProcess: ChildProcess | undefined;
   let sessionDir: string | undefined;
   try {
-    const { uuid } = req.body;
+    const { uuid, configPassword } = req.body;
     const token = extractToken(req);
     jwt.verify(token, process.env.OPEN_BALENA_JWT_SECRET as string);
     sessionDir = await createSessionDir(uuid);
     await balenaLogin(token, sessionDir);
-    await setSshState(uuid, 'on', sessionDir);
+    await setSshState(uuid, configPassword, 'on', sessionDir);
     const handle = await openTunnel(uuid, '12738:127.0.0.1', sessionDir);
     tunnelProcess = handle.tunnelProcess;
     const files = (req.files as Express.Multer.File[]) || [];
@@ -268,7 +264,7 @@ app.post('/send-files', upload.array('files'), async (req: Request, res: Respons
     res.json({ success: true, message: 'Files uploaded successfully' });
     void (async () => {
       try {
-        await setSshState(uuid, 'off', sessionDir!);
+        await setSshState(uuid, configPassword, 'off', sessionDir!);
       } catch (err: any) {
         console.error('Failed to disable SSH after upload:', err?.message || err);
       } finally {
@@ -285,12 +281,12 @@ app.post('/download-files', async (req: Request, res: Response) => {
   let tunnelProcess: ChildProcess | undefined;
   let sessionDir: string | undefined;
   try {
-    const { uuid, name } = req.body;
+    const { uuid, name, configPassword } = req.body;
     const token = extractToken(req);
     jwt.verify(token, process.env.OPEN_BALENA_JWT_SECRET as string);
     sessionDir = await createSessionDir(uuid);
     await balenaLogin(token, sessionDir);
-    await setSshState(uuid, 'on', sessionDir);
+    await setSshState(uuid, configPassword, 'on', sessionDir);
     const handle = await openTunnel(uuid, '12738:127.0.0.1', sessionDir);
     tunnelProcess = handle.tunnelProcess;
     const downloadPath = `/tmp/sessions/${uuid}/download_${Date.now()}`;
@@ -312,7 +308,7 @@ app.post('/download-files', async (req: Request, res: Response) => {
       fs.unlinkSync(zipFile);
       void (async () => {
         try {
-          await setSshState(uuid, 'off', sessionDir!);
+          await setSshState(uuid, configPassword, 'off', sessionDir!);
         } catch (err: any) {
           console.error('Failed to disable SSH after download:', err?.message || err);
         } finally {
@@ -358,12 +354,12 @@ app.post('/download-backup', async (req: Request, res: Response) => {
   let tunnelProcess: ChildProcess | undefined;
   let sessionDir: string | undefined;
   try {
-    const { uuid, name } = req.body;
+    const { uuid, name, configPassword } = req.body;
     const token = extractToken(req);
     jwt.verify(token, process.env.OPEN_BALENA_JWT_SECRET as string);
     sessionDir = await createSessionDir(uuid);
     await balenaLogin(token, sessionDir);
-    await setSshState(uuid, 'on', sessionDir);
+    await setSshState(uuid, configPassword, 'on', sessionDir);
     const handle = await openTunnel(uuid, '12738:127.0.0.1', sessionDir);
     tunnelProcess = handle.tunnelProcess;
     const downloadPath = `/tmp/sessions/${uuid}/download_${Date.now()}`;
@@ -385,7 +381,7 @@ app.post('/download-backup', async (req: Request, res: Response) => {
       fs.unlinkSync(zipFile);
       void (async () => {
         try {
-          await setSshState(uuid, 'off', sessionDir!);
+          await setSshState(uuid, configPassword, 'off', sessionDir!);
         } catch (err: any) {
           console.error('Failed to disable SSH after backup:', err?.message || err);
         } finally {
@@ -403,12 +399,12 @@ app.post('/upload-ionos', async (req: Request, res: Response) => {
   let tunnelProcess: ChildProcess | undefined;
   let sessionDir: string | undefined;
   try {
-    const { uuid } = req.body;
+    const { uuid, configPassword } = req.body;
     const token = extractToken(req);
     jwt.verify(token, process.env.OPEN_BALENA_JWT_SECRET as string);
     sessionDir = await createSessionDir(uuid);
     await balenaLogin(token, sessionDir);
-    await setSshState(uuid, 'on', sessionDir);
+    await setSshState(uuid, configPassword, 'on', sessionDir);
     const handle = await openTunnel(uuid, '12738:127.0.0.1', sessionDir);
     tunnelProcess = handle.tunnelProcess;
     const command = `ssh -i /certs/tunnelKey/tunnelKey -p ${handle.tunnelPort} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@127.0.0.1 "/start-scripts/start-backup.sh backup"`;
@@ -423,7 +419,7 @@ app.post('/upload-ionos', async (req: Request, res: Response) => {
     res.json({ success: true, message: 'Upload to Ionos command sent', output, lastLine });
     void (async () => {
       try {
-        await setSshState(uuid, 'off', sessionDir!);
+        await setSshState(uuid, configPassword, 'off', sessionDir!);
       } catch (err: any) {
         console.error('Failed to disable SSH after Ionos upload:', err?.message || err);
       } finally {
