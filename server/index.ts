@@ -12,6 +12,7 @@ import jwt from 'njwt';
 import registryImageRoutes from './routes/registryImage';
 import serialListRoutes from './routes/serialList';
 import housekeeperRoutes from './routes/housekeeper';
+import securityRoutes from './routes/security';
 
 dotenv.config();
 
@@ -39,6 +40,7 @@ app.use(express.json());
 app.use('/', registryImageRoutes);
 app.use('/', serialListRoutes);
 app.use('/', housekeeperRoutes);
+app.use('/', securityRoutes);
 
 // --- balena-cli session helpers (preserved from fork) -----------------------
 

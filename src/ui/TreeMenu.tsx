@@ -12,6 +12,7 @@ import React, { useState } from 'react';
 import type { HTMLAttributes, ReactNode } from 'react';
 import { DashboardMenuItem, MenuItemLink, useResourceDefinitions, useSidebarState, useTranslate } from 'react-admin';
 import CustomMenuItem from './CustomMenuItem';
+import SecurityMenuItem from './SecurityMenuItem';
 import logo from '../logo.svg';
 
 const PREFIX = 'RaTreeMenu';
@@ -145,17 +146,27 @@ const TreeMenu: React.FC<TreeMenuProps> = (props) => {
     return resourcename;
   };
 
-  const MenuItem = (resource) => (
-    <MenuItemLink
-      key={resource.name}
-      to={`/${encodeURIComponent(resource.name)}`}
-      primaryText={getPrimaryTextForResource(resource)}
-      leftIcon={resource.icon ? <resource.icon /> : <DefaultIcon />}
-      onClick={onMenuClick}
-      dense={dense}
-      sidebarIsOpen={open}
-    />
-  );
+  const MenuItem = (resource) =>
+    resource?.options?.severityMenu ? (
+      <SecurityMenuItem
+        key={resource.name}
+        resource={resource}
+        primaryText={getPrimaryTextForResource(resource)}
+        onClick={onMenuClick}
+        dense={dense}
+        sidebarIsOpen={open}
+      />
+    ) : (
+      <MenuItemLink
+        key={resource.name}
+        to={`/${encodeURIComponent(resource.name)}`}
+        primaryText={getPrimaryTextForResource(resource)}
+        leftIcon={resource.icon ? <resource.icon /> : <DefaultIcon />}
+        onClick={onMenuClick}
+        dense={dense}
+        sidebarIsOpen={open}
+      />
+    );
 
   const mapParentStack = (parentResource) => {
     return (
