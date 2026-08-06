@@ -9,6 +9,7 @@ import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import SpeakerNotesOffIcon from '@mui/icons-material/SpeakerNotesOff';
 import SpeakerNotesIcon from '@mui/icons-material/SpeakerNotes';
 import UpdateIcon from '@mui/icons-material/Update';
+import SendIcon from '@mui/icons-material/Send';
 import {
 	Box,
 	Card,
@@ -17,6 +18,10 @@ import {
 	Typography,
 	Button,
 	Grid,
+	FormControl,
+	Select,
+	MenuItem,
+	type SelectChangeEvent,
 } from '@mui/material';
 import {
 	EditButton,
@@ -38,12 +43,33 @@ type DeviceRecord = RaRecord & {
 	'api heartbeat state'?: string;
 };
 
+// Out-of-band tasks queued for the device to pull. Must match the dispatcher's
+// KNOWN_TASKS (support-containers/task-dispatcher/app.py).
+const TASK_COMMANDS = ['reboot', 'restart-vpn', 'upload-logs', 'upload-backup'] as const;
+
+// Shared style for the action buttons: square-ish tiles with the icon stacked
+// above a centered label, uniform height across a row (fullWidth in an equal
+// 3-col grid).
+const ACTION_BTN_SX = {
+	flexDirection: 'column',
+	gap: 0.25,
+	py: 0.5,
+	minHeight: 48,
+	height: '100%',
+	textAlign: 'center',
+	lineHeight: 1.1,
+	fontSize: '0.72rem',
+	'& .MuiButton-startIcon': { margin: 0 },
+	'& .MuiSvgIcon-root': { fontSize: 18 },
+} as const;
+
 const ControlsWidget: React.FC = () => {
 	const authProvider = useAuthProvider();
 	const notify = useNotify();
 	const record = useRecordContext<DeviceRecord>();
 
 	const [confirmationDialog, setConfirmationDialog] = React.useState<ConfirmationDialogProps | null>(null);
+	const [taskName, setTaskName] = React.useState<string>('');
 
 	const invokeSupervisor = async (device: DeviceRecord, command: string) => {
 		const session = authProvider?.getSession?.();
@@ -336,6 +362,39 @@ const ControlsWidget: React.FC = () => {
 		}
 	};
 
+	// Queue an out-of-band task via the task-dispatcher (BFF injects the operator
+	// token). Unlike the supervisor commands above, this does NOT require the
+	// device to be online — it is the channel for offline / VPN-down devices.
+	const sendTask = async (device: DeviceRecord, taskCommand: string) => {
+		const session = authProvider?.getSession?.();
+		if (!session?.jwt) {
+			notify('Error: Unable to queue task without a valid session', { type: 'error' });
+			return;
+		}
+		try {
+			const response = await fetch('/task-dispatcher/command', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${session.jwt}`,
+				},
+				body: JSON.stringify({ name: taskCommand, device_name: device['device name'] }),
+			});
+			if (response.ok) {
+				const data = await response.json().catch(() => ({}));
+				notify(`Task "${taskCommand}" queued (task_id ${data.task_id ?? '?'})`, { type: 'success' });
+			} else {
+				const errorData = await response.json().catch(() => ({}));
+				notify(`Failed to queue "${taskCommand}": ${errorData.error || errorData.message || response.statusText}`, {
+					type: 'error',
+				});
+			}
+		} catch (error) {
+			console.error('Error while queuing task:', error);
+			notify('An error occurred while queuing the task', { type: 'error' });
+		}
+	};
+
 	if (!record) return null;
 
 	const isOffline = record['api heartbeat state'] !== 'online';
@@ -361,55 +420,68 @@ const ControlsWidget: React.FC = () => {
 				<Grid container spacing={2}>
 					{/* General Actions */}
 					<Grid item xs={12} md={6}>
-						<Card>
+						<Card sx={{ height: '100%' }}>
 							<CardContent>
 								<Typography variant='body1' fontWeight='bold'>
 									General
 								</Typography>
 							</CardContent>
 							<CardActions>
-								<Grid container direction='column' spacing={2}>
-									<Grid item>
-										<Box display='flex' gap={1}>
-											<EditButton label='Edit' size='small' variant='outlined' color='secondary' />
-											<Button
-												variant='outlined'
-												size='small'
-												onClick={() => {
-													setConfirmationDialog({
-														title: 'Reboot Device',
-														content: 'Are you sure you want to reboot this device?',
-														onConfirm: () => invokeSupervisor(record, 'reboot'),
-													});
-												}}
-												startIcon={<RestartAltIcon />}
-												disabled={isOffline}
-											>
-												Reboot
-											</Button>
-										</Box>
+								<Grid container spacing={1}>
+									<Grid item xs={6}>
+										<EditButton
+											label='Edit'
+											size='small'
+											variant='outlined'
+											color='secondary'
+											fullWidth
+											sx={ACTION_BTN_SX}
+										/>
 									</Grid>
-									<Grid item>
-										<Box display='flex' gap={1}>
-											<Button
-												variant='outlined'
-												size='small'
-												onClick={() => invokeSupervisor(record, 'blink')}
-												startIcon={<LightModeIcon />}
-												disabled={isOffline}
-											>
-												Blink
-											</Button>
-											<Button
-												variant='outlined'
-												size='small'
-												onClick={() => updateSupervisor(record)}
-												startIcon={<UpdateIcon />}
-												disabled={isOffline}
-											>
-												Update Supervisor
-											</Button>
-										</Box>
+									<Grid item xs={6}>
+										<Button
+											fullWidth
+											sx={ACTION_BTN_SX}
+											variant='outlined'
+											size='small'
+											onClick={() => {
+												setConfirmationDialog({
+													title: 'Reboot Device',
+													content: 'Are you sure you want to reboot this device?',
+													onConfirm: () => invokeSupervisor(record, 'reboot'),
+												});
+											}}
+											startIcon={<RestartAltIcon />}
+											disabled={isOffline}
+										>
+											Reboot
+										</Button>
+									</Grid>
+									<Grid item xs={6}>
+										<Button
+											fullWidth
+											sx={ACTION_BTN_SX}
+											variant='outlined'
+											size='small'
+											onClick={() => invokeSupervisor(record, 'blink')}
+											startIcon={<LightModeIcon />}
+											disabled={isOffline}
+										>
+											Blink
+										</Button>
+									</Grid>
+									<Grid item xs={6}>
+										<Button
+											fullWidth
+											sx={ACTION_BTN_SX}
+											variant='outlined'
+											size='small'
+											onClick={() => updateSupervisor(record)}
+											startIcon={<UpdateIcon />}
+											disabled={isOffline}
+										>
+											Update Supervisor
+										</Button>
 									</Grid>
 								</Grid>
 							</CardActions>
@@ -417,48 +489,52 @@ const ControlsWidget: React.FC = () => {
 					</Grid>
 					{/* Logs Actions */}
 					<Grid item xs={12} md={6}>
-						<Card>
+						<Card sx={{ height: '100%' }}>
 							<CardContent>
 								<Typography variant='body1' fontWeight='bold'>
 									Logs
 								</Typography>
 							</CardContent>
 							<CardActions>
-								<Grid container direction='column' spacing={2}>
-									<Grid item>
-										<Box display='flex' gap={1}>
-											<Button
-												variant='outlined'
-												size='small'
-												onClick={() => controlLogLevel(record, 'info')}
-												startIcon={<FeedIcon />}
-												disabled={isOffline}
-											>
-												Set to info
-											</Button>
-											<Button
-												variant='outlined'
-												size='small'
-												onClick={() => controlLogLevel(record, 'debug')}
-												startIcon={<FeedOutlinedIcon />}
-												disabled={isOffline}
-											>
-												Set to debug
-											</Button>
-										</Box>
+								<Grid container spacing={1}>
+									<Grid item xs={6}>
+										<Button
+											fullWidth
+											sx={ACTION_BTN_SX}
+											variant='outlined'
+											size='small'
+											onClick={() => controlLogLevel(record, 'info')}
+											startIcon={<FeedIcon />}
+											disabled={isOffline}
+										>
+											Set to info
+										</Button>
 									</Grid>
-									<Grid item>
-										<Box display='flex' gap={1}>
-											<Button
-												variant='outlined'
-												size='small'
-												onClick={() => initiateLogDownload(record)}
-												startIcon={<DownloadIcon />}
-												disabled={isOffline}
-											>
-												Download
-											</Button>
-										</Box>
+									<Grid item xs={6}>
+										<Button
+											fullWidth
+											sx={ACTION_BTN_SX}
+											variant='outlined'
+											size='small'
+											onClick={() => controlLogLevel(record, 'debug')}
+											startIcon={<FeedOutlinedIcon />}
+											disabled={isOffline}
+										>
+											Set to debug
+										</Button>
+									</Grid>
+									<Grid item xs={6}>
+										<Button
+											fullWidth
+											sx={ACTION_BTN_SX}
+											variant='outlined'
+											size='small'
+											onClick={() => initiateLogDownload(record)}
+											startIcon={<DownloadIcon />}
+											disabled={isOffline}
+										>
+											Download
+										</Button>
 									</Grid>
 								</Grid>
 							</CardActions>
@@ -466,57 +542,65 @@ const ControlsWidget: React.FC = () => {
 					</Grid>
 					{/* Files Actions */}
 					<Grid item xs={12} md={6}>
-						<Card>
+						<Card sx={{ height: '100%' }}>
 							<CardContent>
 								<Typography variant='body1' fontWeight='bold'>
 									Files
 								</Typography>
 							</CardContent>
 							<CardActions>
-								<Grid container direction='column' spacing={2}>
-									<Grid item>
-										<Box display='flex' gap={1}>
-											<Button
-												variant='outlined'
-												size='small'
-												onClick={() => uploadFiles(record)}
-												startIcon={<CloudUploadIcon />}
-												disabled={isOffline}
-											>
-												Upload Files
-											</Button>
-											<Button
-												variant='outlined'
-												size='small'
-												onClick={() => downloadFiles(record)}
-												startIcon={<CloudDownloadIcon />}
-												disabled={isOffline}
-											>
-												Download Files
-											</Button>
-										</Box>
+								<Grid container spacing={1}>
+									<Grid item xs={6}>
+										<Button
+											fullWidth
+											sx={ACTION_BTN_SX}
+											variant='outlined'
+											size='small'
+											onClick={() => uploadFiles(record)}
+											startIcon={<CloudUploadIcon />}
+											disabled={isOffline}
+										>
+											Upload Files
+										</Button>
 									</Grid>
-									<Grid item>
-										<Box display='flex' gap={1}>
-											<Button
-												variant='outlined'
-												size='small'
-												onClick={() => downloadBackup(record)}
-												startIcon={<CloudDownloadIcon />}
-												disabled={isOffline}
-											>
-												Download Backup
-											</Button>
-											<Button
-												variant='outlined'
-												size='small'
-												onClick={() => uploadIonos(record)}
-												startIcon={<CloudUploadIcon />}
-												disabled={isOffline}
-											>
-												Upload Backup to Ionos
-											</Button>
-										</Box>
+									<Grid item xs={6}>
+										<Button
+											fullWidth
+											sx={ACTION_BTN_SX}
+											variant='outlined'
+											size='small'
+											onClick={() => downloadFiles(record)}
+											startIcon={<CloudDownloadIcon />}
+											disabled={isOffline}
+										>
+											Download Files
+										</Button>
+									</Grid>
+									<Grid item xs={6}>
+										<Button
+											fullWidth
+											sx={ACTION_BTN_SX}
+											variant='outlined'
+											size='small'
+											onClick={() => downloadBackup(record)}
+											startIcon={<CloudDownloadIcon />}
+											disabled={isOffline}
+										>
+											Download Backup
+										</Button>
+									</Grid>
+									<Grid item xs={6}>
+										<Button
+											fullWidth
+											sx={ACTION_BTN_SX}
+											variant='outlined'
+											size='small'
+											onClick={() => uploadIonos(record)}
+											startIcon={<CloudUploadIcon />}
+											disabled={isOffline}
+										>
+											Upload Backup to Ionos
+										</Button>
 									</Grid>
 								</Grid>
 							</CardActions>
@@ -524,32 +608,87 @@ const ControlsWidget: React.FC = () => {
 					</Grid>
 					{/* SSH Actions */}
 					<Grid item xs={12} md={6}>
-						<Card>
+						<Card sx={{ height: '100%' }}>
 							<CardContent>
 								<Typography variant='body1' fontWeight='bold'>
 									SSH
 								</Typography>
 							</CardContent>
 							<CardActions>
-								<Button
-									variant='outlined'
-									size='small'
-									onClick={() => controlSSH(record, 'on')}
-									startIcon={<SpeakerNotesIcon />}
-									disabled={isOffline}
-								>
-									Enable SSH
-								</Button>
-								<Button
-									variant='outlined'
-									size='small'
-									onClick={() => controlSSH(record, 'off')}
-									startIcon={<SpeakerNotesOffIcon />}
-									disabled={isOffline}
-								>
-									Disable SSH
-								</Button>
+								<Grid container spacing={1}>
+									<Grid item xs={6}>
+										<Button
+											fullWidth
+											sx={ACTION_BTN_SX}
+											variant='outlined'
+											size='small'
+											onClick={() => controlSSH(record, 'on')}
+											startIcon={<SpeakerNotesIcon />}
+											disabled={isOffline}
+										>
+											Enable SSH
+										</Button>
+									</Grid>
+									<Grid item xs={6}>
+										<Button
+											fullWidth
+											sx={ACTION_BTN_SX}
+											variant='outlined'
+											size='small'
+											onClick={() => controlSSH(record, 'off')}
+											startIcon={<SpeakerNotesOffIcon />}
+											disabled={isOffline}
+										>
+											Disable SSH
+										</Button>
+									</Grid>
+								</Grid>
 							</CardActions>
+						</Card>
+					</Grid>
+					{/* Task Channel — full width; out-of-band commands, deliberately NOT
+					    disabled offline since this is the channel for offline / VPN-down devices. */}
+					<Grid item xs={12}>
+						<Card sx={{ height: '100%' }}>
+							<CardContent sx={{ '&:last-child': { pb: 2 } }}>
+								<Box display='flex' gap={2} alignItems='center' flexWrap='wrap'>
+									<Typography variant='body1' fontWeight='bold' sx={{ mr: 1 }}>
+										Task Channel
+									</Typography>
+									<FormControl size='small' sx={{ width: 200 }}>
+										<Select
+											displayEmpty
+											value={taskName}
+											onChange={(e: SelectChangeEvent) => setTaskName(e.target.value)}
+											renderValue={(v) =>
+												v ? (v as string) : <Box component='span' sx={{ color: 'text.secondary' }}>Command</Box>
+											}
+										>
+											{TASK_COMMANDS.map((t) => (
+												<MenuItem key={t} value={t}>
+													{t}
+												</MenuItem>
+											))}
+										</Select>
+									</FormControl>
+									<Button
+										variant='outlined'
+										size='small'
+										startIcon={<SendIcon />}
+										disabled={!taskName}
+										sx={{ height: 40 }}
+										onClick={() => {
+											setConfirmationDialog({
+												title: 'Queue Device Task',
+												content: `Queue "${taskName}" for this device? It runs the next time the device polls (works while offline / VPN down).`,
+												onConfirm: () => sendTask(record, taskName),
+											});
+										}}
+									>
+										Send
+									</Button>
+								</Box>
+							</CardContent>
 						</Card>
 					</Grid>
 				</Grid>

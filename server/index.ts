@@ -13,6 +13,7 @@ import registryImageRoutes from './routes/registryImage';
 import serialListRoutes from './routes/serialList';
 import housekeeperRoutes from './routes/housekeeper';
 import securityRoutes from './routes/security';
+import taskDispatcherRoutes from './routes/taskDispatcher';
 
 dotenv.config();
 
@@ -41,6 +42,7 @@ app.use('/', registryImageRoutes);
 app.use('/', serialListRoutes);
 app.use('/', housekeeperRoutes);
 app.use('/', securityRoutes);
+app.use('/', taskDispatcherRoutes);
 
 // --- balena-cli session helpers (preserved from fork) -----------------------
 

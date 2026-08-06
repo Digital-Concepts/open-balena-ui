@@ -36,6 +36,13 @@ There are a number of environment variables used to configure the ui:
   housekeeper container's `AUTH_TOKEN_FILE` secret. Token is never exposed to the browser; proxied server-side via
   `server/routes/housekeeper.ts`.
 
+- `TASK_DISPATCHER_URL` The URL of the task-dispatcher service instance (default: `http://task-dispatcher:7000`)
+
+- `TASK_DISPATCHER_TOKEN` The bearer token for authenticating requests to the task-dispatcher admin API. Must match
+  the task-dispatcher container's `AUTH_TOKEN_FILE` secret (`task-dispatcher-token`). Token is never exposed to the
+  browser; proxied server-side via `server/routes/taskDispatcher.ts`. Powers the device page's "Task Channel" control,
+  which queues an out-of-band command (reboot / restart-vpn / upload-logs / upload-backup) for the device to pull.
+
 These variables can be supplied through the standard Vite `.env` files (for example `.env`, `.env.local`, or
 `.env.<mode>` when invoking `vite --mode <mode>`). The active mode is already set for the provided `npm run dev` and
 `npm run dev:local` scripts.
