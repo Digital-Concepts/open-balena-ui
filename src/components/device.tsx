@@ -52,6 +52,7 @@ import {
 	TopToolbar,
 	required,
 	useGetOne,
+	useNotify,
 	useRecordContext,
 	useRedirect,
 	useListContext,
@@ -62,6 +63,7 @@ import {
 	PaginationProps,
 	ListProps,
 } from 'react-admin';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import {
 	useCreateDevice,
@@ -1060,9 +1062,28 @@ const ClientInput: React.FC = () => {
 
 export const DeviceEdit: React.FC = () => {
   const modifyDevice = useModifyDeviceWithClient();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const notify = useNotify();
+  const redirect = useRedirect();
+
+  const onSuccess = () => {
+    notify('ra.notification.updated', { type: 'info', messageArgs: { smart_count: 1 } });
+    if (location.key && location.key !== 'default') {
+      navigate(-1);
+    } else {
+      redirect('list', 'device');
+    }
+  };
 
   return (
-    <Edit title='Edit Device' actions={false} transform={modifyDevice}>
+    <Edit
+      title='Edit Device'
+      actions={false}
+      transform={modifyDevice}
+      redirect={false}
+      mutationOptions={{ onSuccess }}
+    >
       <SimpleForm>
         <Row>
           <TextInput label='UUID' source='uuid' size='large' readOnly={true} />
