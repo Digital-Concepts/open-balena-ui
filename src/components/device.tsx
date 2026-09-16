@@ -1082,6 +1082,10 @@ export const DeviceEdit: React.FC = () => {
       actions={false}
       transform={modifyDevice}
       redirect={false}
+      // Pessimistic: a custom onSuccess suppresses react-admin's undoable
+      // notification, and in undoable mode that notification is what actually
+      // dispatches the queued update -- without it nothing reaches the API.
+      mutationMode='pessimistic'
       mutationOptions={{ onSuccess }}
     >
       <SimpleForm>
