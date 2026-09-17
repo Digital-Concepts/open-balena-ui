@@ -170,6 +170,7 @@ export const SerialList = () => {
       'MAC Address': record.mac_address,
       'Product ID': record.product_id,
       'Registered At': record.registered_at ? new Date(record.registered_at).toLocaleString() : '',
+      'Serial Assigned At': record.serial_assigned_at ? new Date(record.serial_assigned_at).toLocaleString() : '',
     }));
     
     jsonExport(dataForExport, (err, csv) => {
@@ -354,8 +355,15 @@ export const SerialList = () => {
           <TextField source="product_id" label="Product ID" sortable />
           <FunctionField
             label="Registered At"
-            render={(record) => new Date(record.registered_at).toLocaleString()}
+            render={(record) => (record.registered_at ? new Date(record.registered_at).toLocaleString() : 'N/A')}
             sortBy="registered_at"
+          />
+          <FunctionField
+            label="Serial Assigned At"
+            render={(record) =>
+              record.serial_assigned_at ? new Date(record.serial_assigned_at).toLocaleString() : 'N/A'
+            }
+            sortBy="serial_assigned_at"
           />
         </Datagrid>
       </List>
@@ -387,8 +395,15 @@ export const SerialList = () => {
           <TextField source="product_id" label="Product ID" sortable />
           <FunctionField
             label="Registered At"
-            render={(record) => new Date(record.registered_at).toLocaleString()}
+            render={(record) => (record.registered_at ? new Date(record.registered_at).toLocaleString() : 'N/A')}
             sortBy="registered_at"
+          />
+          <FunctionField
+            label="Serial Assigned At"
+            render={(record) =>
+              record.serial_assigned_at ? new Date(record.serial_assigned_at).toLocaleString() : 'N/A'
+            }
+            sortBy="serial_assigned_at"
           />
         </Datagrid>
       </List>

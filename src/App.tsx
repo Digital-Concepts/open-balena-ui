@@ -86,11 +86,18 @@ const dataProvider = {
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-        data = data.filter((record) => {
-          if (!record.registered_at) return false;
-          const registeredDate = new Date(record.registered_at);
-          return registeredDate > sevenDaysAgo;
-        });
+        // A unit counts as recent if it was first registered in the window or
+        // got its serial in it: pre-registered rows keep their original
+        // registered_at when the unit is later flashed.
+        const isRecent = (value?: string | null) => {
+          if (!value) return false;
+          const date = new Date(value);
+          return !isNaN(date.getTime()) && date > sevenDaysAgo;
+        };
+
+        data = data.filter(
+          (record) => isRecent(record.registered_at) || isRecent(record.serial_assigned_at),
+        );
       }
 
       if (q) {
