@@ -368,6 +368,9 @@ export const DeviceList: React.FC<ListProps<any>> = (props) => {
 	const [hideOffline, setHideOffline] = React.useState<boolean>(() => {
 		return localStorage.getItem('hideOffline') === 'true';
 	});
+	const [inOffice, setInOffice] = React.useState<boolean>(() => {
+		return localStorage.getItem('inOffice') === 'true';
+	});
 	const [selectedFleet, setSelectedFleet] = React.useState<string>(() => {
 		return localStorage.getItem('selectedFleet') || '';
 	});
@@ -416,6 +419,8 @@ export const DeviceList: React.FC<ListProps<any>> = (props) => {
 	const deviceFilter: Record<string, any> = {
 		...(selectedFleet && { 'belongs to-application': selectedFleet }),
 		...(hideOffline && { 'api heartbeat state': 'online' }),
+		// 'ip address' is a space-separated list; trailing dot anchors the /24
+		...(inOffice && { 'ip address@like': '172.28.28.' }),
 	};
 
 	// Client-side filter fallback: the open-balena API doesn't support
@@ -475,6 +480,12 @@ export const DeviceList: React.FC<ListProps<any>> = (props) => {
 		const newValue = !hideOffline;
 		setHideOffline(newValue);
 		localStorage.setItem('hideOffline', String(newValue));
+	};
+
+	const handleInOfficeChange = () => {
+		const newValue = !inOffice;
+		setInOffice(newValue);
+		localStorage.setItem('inOffice', String(newValue));
 	};
 
 	if (groupedView) {
@@ -587,20 +598,37 @@ export const DeviceList: React.FC<ListProps<any>> = (props) => {
 					</Select>
 				</FormControl>
 
-				<FormControlLabel
-					control={
-						<Checkbox
-							checked={hideOffline}
-							onChange={handleHideOfflineChange}
-							sx={(theme) => ({
-								color: theme.palette.primary.main,
-								'&.Mui-checked': { color: theme.palette.primary.main },
-							})}
-						/>
-					}
-					label='Hide Offline Devices'
-					sx={(theme) => ({ color: theme.palette.text.primary })}
-				/>
+				<Box sx={{ display: 'flex', flexDirection: 'column' }}>
+					<FormControlLabel
+						control={
+							<Checkbox
+								checked={hideOffline}
+								onChange={handleHideOfflineChange}
+								sx={(theme) => ({
+									color: theme.palette.primary.main,
+									'&.Mui-checked': { color: theme.palette.primary.main },
+								})}
+							/>
+						}
+						label='Hide Offline Devices'
+						sx={(theme) => ({ color: theme.palette.text.primary })}
+					/>
+
+					<FormControlLabel
+						control={
+							<Checkbox
+								checked={inOffice}
+								onChange={handleInOfficeChange}
+								sx={(theme) => ({
+									color: theme.palette.primary.main,
+									'&.Mui-checked': { color: theme.palette.primary.main },
+								})}
+							/>
+						}
+						label='In the Office'
+						sx={(theme) => ({ color: theme.palette.text.primary })}
+					/>
+				</Box>
 			</Box>
 
 			<List {...listProps} title={title} filters={deviceFilters} filter={deviceFilter} pagination={<ExtendedPagination />}>
