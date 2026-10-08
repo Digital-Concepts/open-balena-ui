@@ -57,8 +57,11 @@ router.get('/security/runs/:id/sbom/:name', ...dosProtect, authorize, (req, res)
     { text: true, contentType: 'application/json' }));
 router.get('/security/audit', ...dosProtect, authorize, (req, res) => proxy(req, res, 'GET', '/audit', { query: true }));
 
-// Fleet SBOM/CVE reports (uploaded by the build system). Read-only from the UI.
+// Fleet SBOM/CVE reports (uploaded by the build system). Read-only from the UI,
+// except for triggering a rescan of the stored SBOMs.
 router.get('/security/fleets', ...dosProtect, authorize, (req, res) => proxy(req, res, 'GET', '/fleets'));
+router.post('/security/fleets/rescan', ...dosProtect, authorize, (req, res) =>
+  proxy(req, res, 'POST', '/fleets/rescan'));
 router.get('/security/fleets/:fleet/releases', ...dosProtect, authorize, (req, res) =>
   proxy(req, res, 'GET', `/fleets/${encodeURIComponent(req.params.fleet)}/releases`));
 router.get('/security/fleets/:fleet/releases/:release', ...dosProtect, authorize, (req, res) =>

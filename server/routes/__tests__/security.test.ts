@@ -67,6 +67,21 @@ describe('security BFF — fleets', () => {
     expect(call[0]).toBe('http://sa:7100/fleets/release_OPUS_Pi3/releases/2.0.004/sbom/Valkey');
   });
 
+  it('POST /security/fleets/rescan proxies the trigger', async () => {
+    mockFetch(202, { status: 'started' });
+    const res = await request(app).post('/security/fleets/rescan');
+    expect(res.status).toBe(202);
+    const call = (global.fetch as any).mock.calls[0];
+    expect(call[0]).toBe('http://sa:7100/fleets/rescan');
+    expect(call[1].method).toBe('POST');
+  });
+
+  it('passes through a 409 when a scan is already running', async () => {
+    mockFetch(409, { error: 'a security scan is already in progress' });
+    const res = await request(app).post('/security/fleets/rescan');
+    expect(res.status).toBe(409);
+  });
+
   it('passes through a 404 for an unknown release', async () => {
     mockFetch(404, { status: 'failed', message: 'not found' });
     const res = await request(app).get('/security/fleets/release_OPUS_Pi3/releases/9.9.9');

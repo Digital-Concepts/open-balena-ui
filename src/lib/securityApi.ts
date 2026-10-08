@@ -38,6 +38,8 @@ export function useSecurityApi() {
       (await axios.get(
         `${baseUrl}/fleets/${encodeURIComponent(fleet)}/releases/${encodeURIComponent(release)}`,
         { headers: headers() })).data,
+    triggerFleetRescan: async () =>
+      (await axios.post(`${baseUrl}/fleets/rescan`, {}, { headers: headers() })).data,
     downloadFleetSbom: async (fleet: string, release: string, service: string) =>
       (await axios.get(
         `${baseUrl}/fleets/${encodeURIComponent(fleet)}/releases/${encodeURIComponent(release)}` +

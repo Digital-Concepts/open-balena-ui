@@ -247,7 +247,7 @@ const OpenBalenaAdmin: React.FC = () => {
 
       <Resource name='menu-security' options={{ label: 'Security', isMenuParent: true }} />
       <Resource name='security' options={{ label: 'Vulnerabilities', menuParent: 'menu-security', severityMenu: true }} {...security} />
-      <Resource name='security-fleets' options={{ label: 'Fleets', menuParent: 'menu-security' }} {...securityFleets} />
+      <Resource name='security-fleets' options={{ label: 'Reports', menuParent: 'menu-security' }} {...securityFleets} />
 
       <Resource name='menu-serial-db' options={{ label: 'Serial DB', isMenuParent: true }} />
       <Resource name='gateways' options={{ label: 'Gateways', menuParent: 'menu-serial-db' }} {...serialList} />

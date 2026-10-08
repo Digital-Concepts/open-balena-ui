@@ -7,6 +7,7 @@ const api = {
   getFleetReleases: vi.fn(),
   getFleetRelease: vi.fn(),
   downloadFleetSbom: vi.fn(),
+  triggerFleetRescan: vi.fn(),
 };
 vi.mock('../../lib/securityApi', () => ({ useSecurityApi: () => api }));
 const notify = vi.fn();
@@ -187,5 +188,193 @@ describe('FleetsPage drill-down', () => {
     expect(screen.getByText('Apache-2.0')).toBeInTheDocument();  // SBOM-only: license column
     // openssl shows in both the CVE row and the SBOM package list
     expect(screen.getAllByText(/openssl/).length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+// A rescanned release: one known finding and two that appeared after the build.
+const RESCANNED = {
+  ...RELEASE,
+  rescannable: true,
+  rescanned_at: '2026-09-24T04:00:12Z',
+  new_cves: 2,
+  containers: [{
+    ...RELEASE.containers[0],
+    new_cves: 2,
+    cves: [
+      { id: 'CVE-2024-0001', severity: 'high', cvss: 7.5, package: 'openssl',
+        version: '3.1.2', fixed_version: '3.1.4', new: false },
+      { id: 'CVE-2026-1111', severity: 'critical', cvss: 9.1, package: 'openssl',
+        version: '3.1.2', fixed_version: '3.1.9', new: true },
+      { id: 'CVE-2026-2222', severity: 'low', cvss: 2.0, package: 'musl',
+        version: '1.2', fixed_version: '', new: true },
+    ],
+  }],
+};
+
+const openRelease = async (rep: any) => {
+  api.getFleetRelease.mockResolvedValue(rep);
+  render(<FleetsPage />);
+  fireEvent.click(await screen.findByTestId('fleet-card-release_OPUS_Pi3'));
+  await screen.findByTestId('container-row-DC-Core-206');
+};
+
+describe('FleetsPage rescan', () => {
+  it('shows rescan date and new count on the fleet card', async () => {
+    api.getFleets.mockResolvedValue([
+      { ...FLEETS[0], rescanned_at: '2026-09-24T04:00:12Z', new_cves: 2 },
+      FLEETS[1],
+    ]);
+    render(<FleetsPage />);
+    const card = await screen.findByTestId('fleet-card-release_OPUS_Pi3');
+    expect(within(card).getByText(/rescanned 2026-09-24/)).toBeInTheDocument();
+    expect(within(card).getByTestId('new-chip')).toHaveTextContent('2 new');
+    const other = screen.getByTestId('fleet-card-release_Business_Pi4');
+    expect(within(other).queryByTestId('new-chip')).toBeNull();
+  });
+
+  it('shows rescan status and new-since-release in the detail header', async () => {
+    await openRelease(RESCANNED);
+    expect(screen.getByText(/rescanned 2026-09-24 04:00/)).toBeInTheDocument();
+    expect(screen.getByText('2 new since release')).toBeInTheDocument();
+  });
+
+  it('marks releases that were never rescanned or cannot be', async () => {
+    await openRelease({ ...RELEASE, rescannable: false });
+    expect(screen.getByText('not rescannable')).toBeInTheDocument();
+  });
+
+  it('marks a rescannable release that has not been rescanned yet', async () => {
+    await openRelease({ ...RELEASE, rescannable: true });
+    expect(screen.getByText('not rescanned yet')).toBeInTheDocument();
+  });
+
+  it('shows a +N new chip on the container row', async () => {
+    await openRelease(RESCANNED);
+    const row = screen.getByTestId('container-row-DC-Core-206');
+    expect(within(row).getByText('+2 new')).toBeInTheDocument();
+  });
+
+  it('flags new CVEs and filters to them with the New only toggle', async () => {
+    await openRelease(RESCANNED);
+    fireEvent.click(screen.getByTestId('container-row-DC-Core-206'));
+    const cveTable = (await screen.findAllByRole('table'))[1];
+    expect(within(cveTable).getAllByText('NEW')).toHaveLength(2);
+    expect(within(cveTable).getAllByRole('row')).toHaveLength(4); // header + 3
+
+    fireEvent.click(screen.getByLabelText('New only'));
+    const ids = within(cveTable).getAllByRole('row').slice(1)
+      .map((r) => within(r).getAllByRole('cell')[0].textContent);
+    expect(ids).toEqual(['CVE-2026-1111NEW', 'CVE-2026-2222NEW']);
+  });
+
+  it('labels releases with their new count in the dropdown', async () => {
+    api.getFleetReleases.mockResolvedValue([
+      { release: '2.0.004', generated_at: '2026-07-24T10:00:00Z', totals: RELEASE.totals, new_cves: 2 },
+    ]);
+    await openRelease(RESCANNED);
+    expect(screen.getByText('2.0.004 (2 new)')).toBeInTheDocument();
+  });
+
+  it('triggers a rescan and reports a running scan', async () => {
+    api.triggerFleetRescan.mockResolvedValueOnce({ status: 'started' });
+    await openRelease(RESCANNED);
+    fireEvent.click(screen.getByText('Rescan now'));
+    await vi.waitFor(() => expect(notify).toHaveBeenCalledWith(
+      expect.stringMatching(/Rescan started/), expect.anything()));
+
+    api.triggerFleetRescan.mockRejectedValueOnce({ response: { status: 409 } });
+    fireEvent.click(screen.getByText('Rescan now'));
+    await vi.waitFor(() => expect(notify).toHaveBeenCalledWith(
+      expect.stringMatching(/already running/), expect.objectContaining({ type: 'warning' })));
+  });
+});
+
+describe('FleetsPage grouping', () => {
+  it('groups cards into gateway fleets, firmware and apps', async () => {
+    api.getFleets.mockResolvedValue([
+      FLEETS[0],
+      { ...FLEETS[1], fleet: 'firmware_reg_v2', kind: 'firmware', release: '2.26.08.04' },
+      { ...FLEETS[1], fleet: 'app_myopus-ios', kind: 'app', release: '2.0.3' },
+    ]);
+    render(<FleetsPage />);
+    const fw = await screen.findByTestId('group-firmware');
+    expect(within(fw).getByTestId('fleet-card-firmware_reg_v2')).toBeInTheDocument();
+    expect(within(screen.getByTestId('group-app')).getByTestId('fleet-card-app_myopus-ios'))
+      .toBeInTheDocument();
+    expect(within(screen.getByTestId('group-fleet')).getByTestId('fleet-card-release_OPUS_Pi3'))
+      .toBeInTheDocument();
+    expect(screen.getByText('Firmware')).toBeInTheDocument();
+  });
+
+  it('puts nightly build fleets in their own group after gateway fleets', async () => {
+    api.getFleets.mockResolvedValue([
+      FLEETS[0],
+      { ...FLEETS[1], fleet: 'nightly_OPUS_Pi4' },
+      { ...FLEETS[1], fleet: 'firmware_reg_v2', kind: 'firmware', release: '2.26.08.04' },
+    ]);
+    render(<FleetsPage />);
+    const nightly = await screen.findByTestId('group-nightly');
+    expect(within(nightly).getByTestId('fleet-card-nightly_OPUS_Pi4')).toBeInTheDocument();
+    expect(within(screen.getByTestId('group-fleet')).queryByTestId('fleet-card-nightly_OPUS_Pi4'))
+      .toBeNull();
+    expect(screen.getByText('Nightly builds')).toBeInTheDocument();
+    const order = screen.getAllByTestId(/^group-/).map((g) => g.dataset.testid);
+    expect(order).toEqual(['group-fleet', 'group-nightly', 'group-firmware']);
+  });
+
+  it('says new since build in a nightly report header', async () => {
+    api.getFleets.mockResolvedValue([{ ...FLEETS[0], fleet: 'nightly_OPUS_Pi3' }]);
+    api.getFleetRelease.mockResolvedValue({ ...RESCANNED, fleet: 'nightly_OPUS_Pi3' });
+    render(<FleetsPage />);
+    fireEvent.click(await screen.findByTestId('fleet-card-nightly_OPUS_Pi3'));
+    await screen.findByTestId('container-row-DC-Core-206');
+    expect(screen.getByText('2 new since build')).toBeInTheDocument();
+  });
+
+  it('hides empty groups', async () => {
+    render(<FleetsPage />);
+    await screen.findByTestId('group-fleet');
+    expect(screen.queryByTestId('group-firmware')).toBeNull();
+    expect(screen.queryByTestId('group-app')).toBeNull();
+  });
+
+  it('labels the component column per kind', async () => {
+    api.getFleetRelease.mockResolvedValue({ ...RELEASE, kind: 'firmware' });
+    render(<FleetsPage />);
+    fireEvent.click(await screen.findByTestId('fleet-card-release_OPUS_Pi3'));
+    await screen.findByTestId('container-row-DC-Core-206');
+    expect(screen.getByText('SBOM document')).toBeInTheDocument();
+  });
+});
+
+describe('FleetsPage detected column', () => {
+  const DATED = {
+    ...RESCANNED,
+    generated_at: '2026-09-23T10:00:00Z',
+    containers: [{
+      ...RESCANNED.containers[0],
+      cves: [
+        { ...RESCANNED.containers[0].cves[0], first_seen: '2026-09-23' },
+        { ...RESCANNED.containers[0].cves[1], first_seen: '2026-10-02' },
+        { ...RESCANNED.containers[0].cves[2], first_seen: '2026-09-28' },
+      ],
+    }],
+  };
+
+  it('shows when each finding was first detected, marking build-time ones', async () => {
+    await openRelease(DATED);
+    fireEvent.click(screen.getByTestId('container-row-DC-Core-206'));
+    const cveTable = (await screen.findAllByRole('table'))[1];
+    expect(within(cveTable).getByText('Detected')).toBeInTheDocument();
+    expect(within(cveTable).getByText('at build (2026-09-23)')).toBeInTheDocument();
+    expect(within(cveTable).getByText('2026-10-02')).toBeInTheDocument();
+  });
+
+  it('sorts newest detection first', async () => {
+    await openRelease(DATED);
+    fireEvent.click(screen.getByTestId('container-row-DC-Core-206'));
+    const cveTable = (await screen.findAllByRole('table'))[1];
+    fireEvent.click(within(cveTable).getByText('Detected'));
+    expect(firstColumn(cveTable)).toEqual(['CVE-2026-1111NEW', 'CVE-2026-2222NEW', 'CVE-2024-0001']);
   });
 });
