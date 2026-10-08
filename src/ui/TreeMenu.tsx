@@ -13,7 +13,7 @@ import type { HTMLAttributes, ReactNode } from 'react';
 import { DashboardMenuItem, MenuItemLink, useResourceDefinitions, useSidebarState, useTranslate } from 'react-admin';
 import CustomMenuItem from './CustomMenuItem';
 import SecurityMenuItem from './SecurityMenuItem';
-import logo from '../logo.svg';
+import logo from '../logo-dcnext-light.png';
 
 const PREFIX = 'RaTreeMenu';
 
@@ -221,7 +221,12 @@ const TreeMenu: React.FC<TreeMenuProps> = (props) => {
 
   return (
     <StyledMenu>
-      <img src={logo} className='logo' style={{ margin: '10px 12px 6px' }} alt='Open Balena' />
+      <img
+        src={logo}
+        className='logo'
+        style={{ width: 'calc(100% - 24px)', margin: '14px 12px 8px' }}
+        alt='DC NEXT'
+      />
 
       <div
         className={classnames(classes.main, className, {
