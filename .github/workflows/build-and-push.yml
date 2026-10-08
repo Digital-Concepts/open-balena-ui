@@ -6,6 +6,10 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: docker-latest
+  cancel-in-progress: false
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -22,6 +26,37 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Version Previous Latest Image
+        env:
+          REPO: dcnext/open-balena-ui
+        run: |
+          # Collect "name digest" for every tag on Docker Hub
+          url="https://hub.docker.com/v2/repositories/$REPO/tags?page_size=100"
+          tags=""
+          while [ -n "$url" ] && [ "$url" != "null" ]; do
+            page=$(curl -fsSL "$url")
+            tags="$tags$(echo "$page" | jq -r '.results[] | "\(.name) \(.digest)"')"$'\n'
+            url=$(echo "$page" | jq -r '.next')
+          done
+
+          latest_digest=$(echo "$tags" | awk '$1 == "latest" { print $2 }')
+          if [ -z "$latest_digest" ]; then
+            echo "No latest image yet, nothing to version"
+            exit 0
+          fi
+
+          versions=$(echo "$tags" | awk '$1 ~ /^[0-9]+\.[0-9]+\.[0-9]+$/')
+          existing=$(echo "$versions" | awk -v d="$latest_digest" '$2 == d { print $1 }' | head -1)
+          if [ -n "$existing" ]; then
+            echo "latest is already versioned as $existing"
+            exit 0
+          fi
+
+          last=$(echo "$versions" | awk '{ print $1 }' | sort -V | tail -1)
+          next=$(echo "${last:-0.0.0}" | awk -F. '{ print $1 "." $2 "." $3 + 1 }')
+          docker buildx imagetools create -t "$REPO:$next" "$REPO:latest"
+          echo "Tagged previous latest as $next"
 
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v6
