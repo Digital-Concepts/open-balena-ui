@@ -167,6 +167,9 @@ export const postgrestDataProvider = (
       });
       delete params.filter[ftsKey];
     }
+    // Raw PostgREST clauses OR'd into the full-text search group
+    const ftsExtra = params.filter['@or'];
+    delete params.filter['@or'];
     const parsedFilter = parseFilters(params.filter, defaultListOp);
     const query: Record<string, unknown> = {
       order: getOrderBy(field, order, primaryKey),
@@ -185,7 +188,7 @@ export const postgrestDataProvider = (
             : [`${field}.${value}`];
         })
         .join(',');
-      query.or = `(${orString})`;
+      query.or = `(${ftsExtra ? `${orString},${ftsExtra}` : orString})`;
     }
     // add header that Content-Range is in returned header
     const options = {

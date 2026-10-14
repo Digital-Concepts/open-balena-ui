@@ -172,7 +172,8 @@ export const ReleaseField: React.FC<Omit<FunctionFieldProps<any>, 'render'>> = (
   );
 };
 
-const deviceFilters = [<SearchInput source='#device name,note,ip address,status@ilike' alwaysOn />];
+const DEVICE_SEARCH_KEY = '#device name,note,ip address,status@ilike';
+const deviceFilters = [<SearchInput source={DEVICE_SEARCH_KEY} alwaysOn />];
 
 const ReleaseFieldContent: React.FC<{
   record: Record<string, any> | null;
@@ -360,6 +361,14 @@ const ClientListFilterController: React.FC<{
   return null;
 };
 
+// Reports the current search box text to the parent list.
+const SearchValueReporter: React.FC<{ onChange: (search: string) => void }> = ({ onChange }) => {
+  const { filterValues } = useListContext();
+  const search = String(filterValues[DEVICE_SEARCH_KEY] ?? '').trim();
+  React.useEffect(() => onChange(search), [search]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+};
+
 export const DeviceList: React.FC<ListProps<any>> = (props) => {
 	const [groupedView, setGroupedView] = React.useState(false);
 	const [ageSort, setAgeSort] = React.useState<string>(() => {
@@ -416,12 +425,7 @@ export const DeviceList: React.FC<ListProps<any>> = (props) => {
 	};
 	const { title, ...listProps } = props;
 
-	const deviceFilter: Record<string, any> = {
-		...(selectedFleet && { 'belongs to-application': selectedFleet }),
-		...(hideOffline && { 'api heartbeat state': 'online' }),
-		// 'ip address' is a space-separated list; trailing dot anchors the /24
-		...(inOffice && { 'ip address@like': '172.28.28.' }),
-	};
+	const [search, setSearch] = React.useState('');
 
 	// Client-side filter fallback: the open-balena API doesn't support
 	// device_tag/any() filters, so we fetch all `client` tags once and
@@ -438,6 +442,23 @@ export const DeviceList: React.FC<ListProps<any>> = (props) => {
 		});
 		return m;
 	}, [allClientTags]);
+
+	// Devices whose client tag contains the search text are OR'd into the search
+	const clientSearchIds = React.useMemo(() => {
+		const q = search.toLowerCase();
+		if (!q) return [];
+		return Object.entries(clientByDeviceId)
+			.filter(([, v]) => v && v.toLowerCase().includes(q))
+			.map(([id]) => id);
+	}, [search, clientByDeviceId]);
+
+	const deviceFilter: Record<string, any> = {
+		...(selectedFleet && { 'belongs to-application': selectedFleet }),
+		...(hideOffline && { 'api heartbeat state': 'online' }),
+		// 'ip address' is a space-separated list; trailing dot anchors the /24
+		...(inOffice && { 'ip address@like': '172.28.28.' }),
+		...(clientSearchIds.length > 0 && { '@or': `id.in.(${clientSearchIds.join(',')})` }),
+	};
 
 	const { data: allDevicesForFilter } = useGetList('device', {
 		pagination: { page: 1, perPage: 10000 },
@@ -639,6 +660,7 @@ export const DeviceList: React.FC<ListProps<any>> = (props) => {
 					allDeviceIds={allDeviceIds}
 					onExternalClear={() => handleClientSelectionChange([])}
 				/>
+				<SearchValueReporter onChange={setSearch} />
 				<Datagrid rowClick={false} bulkActionButtons={<CustomBulkActionButtons />} size='medium'>
 					<ReferenceField label='Name' source='id' reference='device' target='id' link='show' sortBy='device name'>
 						<TextField source='device name' />
