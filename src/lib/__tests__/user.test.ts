@@ -15,7 +15,7 @@ vi.mock('react-admin', async (importOriginal) => ({
   useNotify: () => vi.fn(),
 }));
 
-import { assignDefaultRole, guardMappings, useModifyUser, useUserCreated } from '../user';
+import { assignDefaultRole, guardMappings, useDeleteUser, useDeleteUserBulk, useModifyUser, useUserCreated } from '../user';
 import { afterEach } from 'vitest';
 
 describe('assignDefaultRole', () => {
@@ -156,5 +156,41 @@ describe('useUserCreated account routes', () => {
     const b = setup({ type: 'internal', orgId: '', permissionSetId: '9' });
     await b.run({ id: 6 });
     expect(JSON.parse((b.put.mock.calls[0] as any)[1].body)).toEqual({ type: 'internal', permissionSetId: 9 });
+  });
+});
+
+describe('protected openBalena users', () => {
+  const setup = (users: any[]) => {
+    const dp: any = {
+      getList: vi.fn(async () => ({ data: [] })),
+      getMany: vi.fn(async () => ({ data: users })),
+      delete: vi.fn(async () => ({ data: {} })),
+      deleteMany: vi.fn(async () => ({ data: [] })),
+    };
+    const wrapper = ({ children }: any) =>
+      React.createElement(AdminContext, { dataProvider: dp, queryClient: new QueryClient() as any }, children);
+    const { result } = renderHook(() => ({ one: useDeleteUser(), bulk: useDeleteUserBulk() }), { wrapper });
+    return { dp, ...result.current };
+  };
+
+  it('refuses to delete guest before touching anything', async () => {
+    const { dp, one } = setup([]);
+    await expect(one({ id: 1, actor: 2, username: 'guest' })).rejects.toThrow('system user');
+    expect(dp.getList).not.toHaveBeenCalled();
+    expect(dp.delete).not.toHaveBeenCalled();
+  });
+  it('refuses a bulk delete that includes guest, deleting nobody', async () => {
+    const { dp, bulk } = setup([
+      { id: 5, actor: 6, username: 'test1' },
+      { id: 1, actor: 2, username: 'guest' },
+    ]);
+    await expect(bulk([5, 1])).rejects.toThrow('"guest"');
+    expect(dp.getList).not.toHaveBeenCalled();
+    expect(dp.delete).not.toHaveBeenCalled();
+  });
+  it('still deletes normal users', async () => {
+    const { dp, one } = setup([]);
+    await one({ id: 5, actor: 6, username: 'test1' });
+    expect(dp.delete).toHaveBeenCalledWith('user', { id: 5 });
   });
 });

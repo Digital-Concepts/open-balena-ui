@@ -155,11 +155,21 @@ export function useModifyUser() {
   };
 }
 
+// openBalena's service API keys (VPN, API) belong to `guest`; deleting it cuts every device off the VPN.
+export const PROTECTED_USERNAMES = ['guest'];
+
+export const isProtectedUser = (user: { username?: unknown } | null | undefined): boolean =>
+  typeof user?.username === 'string' && PROTECTED_USERNAMES.includes(user.username);
+
+const protectedUserError = (username: string) =>
+  new Error(`"${username}" is an openBalena system user and cannot be deleted`);
+
 export function useDeleteUser() {
   const dataProvider = useDataProvider();
   const deleteApiKey = useDeleteApiKey();
 
   return async (user) => {
+    if (isProtectedUser(user)) throw protectedUserError(user.username);
     let relatedIndirectLookups = [
       {
         remoteResource: 'api key',
@@ -190,6 +200,8 @@ export function useDeleteUserBulk() {
 
   return async (userIds) => {
     const selectedUsers = await dataProvider.getMany('user', { ids: userIds });
+    const blocked = selectedUsers.data.find(isProtectedUser);
+    if (blocked) throw protectedUserError(blocked.username);
     return Promise.all(selectedUsers.data.map((user) => deleteUser(user)));
   };
 }

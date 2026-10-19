@@ -63,7 +63,7 @@ export const UserList: React.FC = () => {
   const lookup = usePermissionSetLookup();
   return (
     <PermissionSetLookupContext.Provider value={lookup}>
-      <List>
+      <List filter={{ 'username@neq': 'guest' }}>
         <Datagrid size='medium' rowClick={false} bulkActionButtons={<CustomBulkActionButtons />}>
           <TextField source='username' />
           <EmailField source='email' />
