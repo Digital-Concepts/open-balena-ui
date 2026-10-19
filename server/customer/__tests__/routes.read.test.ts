@@ -67,6 +67,15 @@ describe('customer read routes', () => {
     expect(list.path).toContain('$orderby=device_name asc');
   });
 
+  it('online=1 keeps only online devices; age sort orders by id', async () => {
+    const { token, calls } = setup(['device.read']);
+    const res = await request(app).get('/api/customer/devices').query({ online: '1', sort: 'id', order: 'DESC' }).set('Authorization', `Bearer ${await token()}`);
+    expect(res.status).toBe(200);
+    const list = calls.find((c) => c.path.startsWith('/v7/device?'))!;
+    expect(list.path).toContain("(api_heartbeat_state eq 'online')");
+    expect(list.path).toContain('$orderby=id desc');
+  });
+
   it('zero org memberships: devices and fleets filter to nothing', async () => {
     const { token, calls } = setup(['device.read'], { memberships: [] });
     const t = await token();

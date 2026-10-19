@@ -100,6 +100,7 @@ router.get(
       scopeFilter(scope, 'belongs_to__application'),
       fleetFilter,
       idsFilter,
+      req.query.online === '1' ? `api_heartbeat_state eq 'online'` : null,
       q ? searchFilter(odataString(q)) : null,
     );
     const page = intParam(req.query.page, 1, 1, 10_000);

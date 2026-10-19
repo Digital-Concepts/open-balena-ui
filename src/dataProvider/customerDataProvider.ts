@@ -38,6 +38,7 @@ export function customerAdminShapedProvider(http: HttpClient): DataProvider {
       if (q) qs.set('q', q);
       const fleetId = filter['belongs to-application'] ?? filter.fleetId;
       if (fleetId !== undefined && fleetId !== null && fleetId !== '') qs.set('fleetId', String(fleetId));
+      if (filter['api heartbeat state'] === 'online') qs.set('online', '1');
       const { json } = await http(`/api/customer/devices?${qs}`);
       return { data: json.data, total: json.total };
     },

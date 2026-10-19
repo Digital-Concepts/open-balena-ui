@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import * as React from 'react';
 
 let capabilities: string[] = [];
+const listCtx: any = { filterValues: {}, setFilters: vi.fn(), sort: { field: 'device name', order: 'ASC' }, setSort: vi.fn() };
 vi.mock('react-admin', () => {
   const Stub = (name: string) => ({ label }: any) => <span data-testid={name}>{label}</span>;
   return {
@@ -22,7 +23,7 @@ vi.mock('react-admin', () => {
     SearchInput: Stub('search'),
     Pagination: Stub('pagination'),
     useGetList: () => ({ data: [] }),
-    useListContext: () => ({ filterValues: {}, setFilters: vi.fn() }),
+    useListContext: () => listCtx,
     usePermissions: () => ({ permissions: { status: 'ok', me: { userId: 1, permissionSet: { id: 1, name: 'c' }, capabilities } } }),
   };
 });
@@ -56,5 +57,16 @@ describe('CustomerDeviceList', () => {
     capabilities = ['device.read', 'device.terminal'];
     render(<CustomerDeviceList />);
     expect(screen.queryByText('connect')).not.toBeNull();
+  });
+
+  it('hide offline toggles the online filter; age sort sets the id sort', () => {
+    capabilities = ['device.read'];
+    listCtx.filterValues = { 'belongs to-application': 10 };
+    render(<CustomerDeviceList />);
+    fireEvent.click(screen.getByLabelText('Hide Offline Devices'));
+    expect(listCtx.setFilters).toHaveBeenCalledWith({ 'belongs to-application': 10, 'api heartbeat state': 'online' }, undefined);
+    fireEvent.mouseDown(screen.getByText('Sort by Age'));
+    fireEvent.click(within(screen.getByRole('listbox')).getByText('Age: Newest First'));
+    expect(listCtx.setSort).toHaveBeenCalledWith({ field: 'id', order: 'DESC' });
   });
 });

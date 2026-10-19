@@ -1,4 +1,4 @@
-import { Box, Button, FormControl, MenuItem, Select, Tooltip } from '@mui/material';
+import { Box, Button, Checkbox, FormControl, FormControlLabel, MenuItem, Select, Tooltip } from '@mui/material';
 import dateFormat from 'dateformat';
 import * as React from 'react';
 import {
@@ -25,6 +25,7 @@ import CustomerDeviceConnect from './widgets/CustomerDeviceConnect';
 import CustomerDeviceServices from './widgets/CustomerDeviceServices';
 
 const FLEET_FILTER = 'belongs to-application';
+const ONLINE_FILTER = 'api heartbeat state';
 
 const deviceFilters = [<SearchInput key='search' source={DEVICE_SEARCH_KEY} alwaysOn />];
 
@@ -47,9 +48,9 @@ const menuPaperSx = (theme: any) => ({
   },
 });
 
-// Fleet filter styled like the admin device list's fleet select, bound to the list filter.
-const FleetFilter: React.FC = () => {
-  const { filterValues, setFilters } = useListContext();
+// Fleet filter, age sort and hide-offline styled like the admin device list, bound to the list filter and sort.
+const ListControls: React.FC = () => {
+  const { filterValues, setFilters, sort, setSort } = useListContext();
   const { data: fleets } = useGetList('application', {
     sort: { field: 'app name', order: 'ASC' },
     pagination: { page: 1, perPage: 1000 },
@@ -58,6 +59,14 @@ const FleetFilter: React.FC = () => {
   const change = (fleetId: string | number) => {
     const { [FLEET_FILTER]: _drop, ...rest } = filterValues;
     setFilters(fleetId === '' ? rest : { ...rest, [FLEET_FILTER]: fleetId }, undefined);
+  };
+  const ageSort = sort?.field === 'id' ? sort.order : '';
+  const changeAgeSort = (value: string) =>
+    setSort(value ? { field: 'id', order: value as 'ASC' | 'DESC' } : { field: 'device name', order: 'ASC' });
+  const hideOffline = filterValues[ONLINE_FILTER] === 'online';
+  const toggleHideOffline = () => {
+    const { [ONLINE_FILTER]: _drop, ...rest } = filterValues;
+    setFilters(hideOffline ? rest : { ...rest, [ONLINE_FILTER]: 'online' }, undefined);
   };
 
   return (
@@ -85,6 +94,32 @@ const FleetFilter: React.FC = () => {
           Clear Filter
         </Button>
       )}
+      <FormControl size='small' sx={{ width: 190 }}>
+        <Select
+          value={ageSort}
+          onChange={(e) => changeAgeSort(e.target.value as string)}
+          displayEmpty
+          sx={selectSx}
+          MenuProps={{ PaperProps: { sx: menuPaperSx } }}
+        >
+          <MenuItem value=''>
+            <b>Sort by Age</b>
+          </MenuItem>
+          <MenuItem value='ASC'>Age: Oldest First</MenuItem>
+          <MenuItem value='DESC'>Age: Newest First</MenuItem>
+        </Select>
+      </FormControl>
+      <FormControlLabel
+        control={
+          <Checkbox
+            checked={hideOffline}
+            onChange={toggleHideOffline}
+            sx={(theme) => ({ color: theme.palette.primary.main, '&.Mui-checked': { color: theme.palette.primary.main } })}
+          />
+        }
+        label='Hide Offline Devices'
+        sx={(theme) => ({ color: theme.palette.text.primary })}
+      />
     </Box>
   );
 };
@@ -94,7 +129,7 @@ const CustomerPagination: React.FC = () => <Pagination rowsPerPageOptions={[25, 
 // Same columns and styling as the admin device list, without client, edit, delete and bulk actions.
 export const CustomerDeviceList: React.FC = () => (
   <List title='Devices' filters={deviceFilters} pagination={<CustomerPagination />} exporter={false}>
-    <FleetFilter />
+    <ListControls />
     <Datagrid rowClick={false} bulkActionButtons={false} size='medium'>
       <ReferenceField label='Name' source='id' reference='device' target='id' link='show' sortBy='device name'>
         <TextField source='device name' />
