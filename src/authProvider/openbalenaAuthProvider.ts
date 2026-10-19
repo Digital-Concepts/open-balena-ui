@@ -4,6 +4,7 @@ interface NodeRequestInit extends RequestInit {
 import type { JwtPayload } from 'jwt-decode';
 import { jwtDecode } from 'jwt-decode';
 import type { AuthProvider } from 'react-admin';
+import { clearPermissionsCache, loadPermissions } from '../lib/me';
 import environment from '../lib/reactAppEnv';
 
 interface LoginParams {
@@ -12,7 +13,6 @@ interface LoginParams {
 }
 
 interface OpenBalenaJwtPayload extends JwtPayload {
-  permissions?: string[];
   id?: number;
   [key: string]: unknown;
 }
@@ -73,18 +73,20 @@ const authProvider: OpenBalenaAuthProvider = {
   },
   getPermissions: () => {
     const jwt = readToken();
-    return jwt ? Promise.resolve(decodeToken(jwt).permissions) : Promise.reject();
+    return jwt ? loadPermissions(jwt) : Promise.reject();
   },
   checkError: (error: { status?: number }) => {
     const status = error.status;
-    if (status === 504 || status === 403) {
+    if (status === 401 || status === 504) {
       localStorage.removeItem('auth');
+      clearPermissionsCache();
       return Promise.reject();
     }
     return Promise.resolve();
   },
   logout: () => {
     localStorage.removeItem('auth');
+    clearPermissionsCache();
     return Promise.resolve();
   },
   getSession: () => {

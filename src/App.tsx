@@ -1,6 +1,6 @@
-import { CssBaseline } from '@mui/material';
+import { Box, Button, CssBaseline, Typography } from '@mui/material';
 import * as React from 'react';
-import { Admin, CustomRoutes, Layout, Resource, fetchUtils } from 'react-admin';
+import { Admin, CustomRoutes, Layout, Loading, Resource, fetchUtils, usePermissions } from 'react-admin';
 import { Navigate, Route, useParams } from 'react-router-dom';
 import type { Options } from 'ra-core';
 import openbalenaAuthProvider from './authProvider/openbalenaAuthProvider';
@@ -33,6 +33,11 @@ import service from './components/service';
 import serviceEnvVar from './components/serviceEnvVar';
 import serviceLabel from './components/serviceLabel';
 import user from './components/user';
+import permissionSet from './components/permissionSet';
+import { permissionSetsDataProvider } from './dataProvider/permissionSetsDataProvider';
+import { customerResources } from './customer/resources';
+import { CUSTOMER_RESOURCES, customerAdminShapedProvider } from './dataProvider/customerDataProvider';
+import { roleAwareDataProvider } from './dataProvider/roleAwareDataProvider';
 import userKey from './components/userKey';
 import serialList from './components/serialList';
 import housekeeping from './components/housekeeping';
@@ -41,11 +46,15 @@ import securityFleets from './components/securityFleets';
 import DeviceDashboard from './dashboards/device';
 import MainDashboard from './dashboards/main';
 import postgrestDataProvider from './dataProvider/postgrestDataProvider';
+import { organizationDeleteGuard } from './dataProvider/organizationDeleteGuard';
+import { routeByResource } from './dataProvider/routeByResource';
 import TreeMenu from './ui/TreeMenu';
 import versions from './versions';
 import environment from './lib/reactAppEnv';
 import ThemeModeProvider, { useThemeMode } from './ui/ThemeModeProvider';
 import AppHeader from './ui/AppHeader';
+import NoAccess from './ui/NoAccess';
+import { isAdmin, loadPermissions, type Permissions } from './lib/me';
 
 const httpClient = (url: string, options: Options = {}): ReturnType<typeof fetchUtils.fetchJson> => {
   const headers = new Headers((options.headers as HeadersInit) ?? { Accept: 'application/json' });
@@ -61,7 +70,7 @@ let gatewaysCache: any[] | null = null;
 let gatewayCacheTime: number | null = null;
 const CACHE_DURATION = 30000;
 
-const dataProvider = {
+const adminDataProvider = {
   ...postgrestDP,
   getList: async (resource: string, params: any) => {
     if (resource === 'gateways' || resource === 'recentGateways') {
@@ -145,6 +154,16 @@ const dataProvider = {
   },
 } as typeof postgrestDP;
 
+const adminRouted = organizationDeleteGuard(routeByResource(adminDataProvider, {
+  'permission-sets': permissionSetsDataProvider(httpClient),
+}));
+const dataProvider = roleAwareDataProvider(
+  adminRouted,
+  customerAdminShapedProvider(httpClient),
+  () => loadPermissions(localStorage.getItem('auth') ?? ''),
+  CUSTOMER_RESOURCES,
+);
+
 const deviceTypeAliasVer = versions.resource('deviceTypeAlias', environment.REACT_APP_OPEN_BALENA_API_VERSION);
 
 const App: React.FC = () => (
@@ -172,24 +191,13 @@ const treeLayout: React.FC<React.ComponentProps<typeof Layout>> = (props) => {
   );
 };
 
-const OpenBalenaAdmin: React.FC = () => {
-  const { theme } = useThemeMode();
-
-  return (
-    <Admin
-      requireAuth
-      title='Open Balena Admin'
-      disableTelemetry={true}
-      dataProvider={dataProvider}
-      authProvider={openbalenaAuthProvider}
-      dashboard={MainDashboard}
-      layout={treeLayout}
-      theme={theme}
-    >
+const adminResources = (
+  <>
       <CustomRoutes>{customRoutes}</CustomRoutes>
       <Resource name='menu-access' options={{ label: 'Access', isMenuParent: true }} />
       <Resource name='organization' options={{ label: 'Orgs', menuParent: 'menu-access' }} {...organization} />
       <Resource name='user' options={{ label: 'Users', menuParent: 'menu-access' }} {...user} />
+      <Resource name='permission-sets' options={{ label: 'Permission Sets', menuParent: 'menu-access' }} {...permissionSet} />
       <Resource name='api key' options={{ label: 'API Keys', menuParent: 'menu-access' }} {...apiKey} />
       <Resource name='user-has-public key' options={{ label: 'SSH Keys', menuParent: 'menu-access' }} {...userKey} />
 
@@ -307,6 +315,50 @@ const OpenBalenaAdmin: React.FC = () => {
       <Resource name='service instance' />
       <Resource name='user-has-permission' />
       <Resource name='user-has-role' />
+  </>
+);
+
+const RoleDashboard: React.FC = () => {
+  const { permissions, isPending, error } = usePermissions<Permissions>();
+  if (isPending) return <Loading />;
+  if (isAdmin(permissions)) return <MainDashboard />;
+  if (permissions?.status === 'ok') return <Navigate to='/device' replace />;
+  if (error && !permissions) {
+    return (
+      <Box sx={{ p: 4, textAlign: 'center' }}>
+        <Typography sx={{ mb: 2 }}>Could not load your permissions</Typography>
+        <Button variant='outlined' onClick={() => window.location.reload()}>
+          Retry
+        </Button>
+      </Box>
+    );
+  }
+  return <NoAccess />;
+};
+
+const noAccessRoutes = (
+  <CustomRoutes>
+    <Route path='/no-access' element={<NoAccess />} />
+  </CustomRoutes>
+);
+
+const OpenBalenaAdmin: React.FC = () => {
+  const { theme } = useThemeMode();
+
+  return (
+    <Admin
+      requireAuth
+      title='Open Balena Admin'
+      disableTelemetry={true}
+      dataProvider={dataProvider}
+      authProvider={openbalenaAuthProvider}
+      dashboard={RoleDashboard}
+      layout={treeLayout}
+      theme={theme}
+    >
+      {(permissions: Permissions) =>
+        isAdmin(permissions) ? adminResources : permissions?.status === 'ok' ? customerResources : noAccessRoutes
+      }
     </Admin>
   );
 };
