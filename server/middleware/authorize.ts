@@ -12,9 +12,15 @@ const authorize: RequestHandler = async (req, res, next) => {
     }
 
     const token = authorizationHeader.split('Bearer ')[1];
-    await jwtVerify(token, new TextEncoder().encode(secret), {
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret), {
       algorithms: ['HS256'],
     });
+    const id = Number((payload as { id?: unknown }).id);
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(401).json({ success: false, message: 'Invalid token' });
+      return;
+    }
+    req.user = { id };
     next();
   } catch (error) {
     res.status(401).json({ success: false, message: 'Invalid token' });
