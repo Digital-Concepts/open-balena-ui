@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { authorize, dosProtect } from '../middleware';
+import { dosProtect, requireAdmin } from '../middleware';
 
 const router = express.Router();
 
@@ -41,33 +41,33 @@ async function proxy(
   }
 }
 
-router.get('/security/status', ...dosProtect, authorize, (req, res) => proxy(req, res, 'GET', '/status'));
-router.get('/security/config', ...dosProtect, authorize, (req, res) => proxy(req, res, 'GET', '/config'));
-router.put('/security/config', ...dosProtect, authorize, (req, res) => proxy(req, res, 'PUT', '/config', { body: true }));
-router.post('/security/run', ...dosProtect, authorize, (req, res) => proxy(req, res, 'POST', '/run', { body: true }));
-router.get('/security/runs', ...dosProtect, authorize, (req, res) => proxy(req, res, 'GET', '/runs'));
+router.get('/security/status', ...dosProtect, ...requireAdmin, (req, res) => proxy(req, res, 'GET', '/status'));
+router.get('/security/config', ...dosProtect, ...requireAdmin, (req, res) => proxy(req, res, 'GET', '/config'));
+router.put('/security/config', ...dosProtect, ...requireAdmin, (req, res) => proxy(req, res, 'PUT', '/config', { body: true }));
+router.post('/security/run', ...dosProtect, ...requireAdmin, (req, res) => proxy(req, res, 'POST', '/run', { body: true }));
+router.get('/security/runs', ...dosProtect, ...requireAdmin, (req, res) => proxy(req, res, 'GET', '/runs'));
 // Declared before the :id route so the literal path wins in Express order.
-router.get('/security/runs/latest', ...dosProtect, authorize, (req, res) => proxy(req, res, 'GET', '/runs/latest'));
-router.get('/security/runs/:id', ...dosProtect, authorize, (req, res) =>
+router.get('/security/runs/latest', ...dosProtect, ...requireAdmin, (req, res) => proxy(req, res, 'GET', '/runs/latest'));
+router.get('/security/runs/:id', ...dosProtect, ...requireAdmin, (req, res) =>
   proxy(req, res, 'GET', `/runs/${encodeURIComponent(req.params.id)}`));
-router.get('/security/runs/:id/log', ...dosProtect, authorize, (req, res) =>
+router.get('/security/runs/:id/log', ...dosProtect, ...requireAdmin, (req, res) =>
   proxy(req, res, 'GET', `/runs/${encodeURIComponent(req.params.id)}/log`, { text: true }));
-router.get('/security/runs/:id/sbom/:name', ...dosProtect, authorize, (req, res) =>
+router.get('/security/runs/:id/sbom/:name', ...dosProtect, ...requireAdmin, (req, res) =>
   proxy(req, res, 'GET', `/runs/${encodeURIComponent(req.params.id)}/sbom/${encodeURIComponent(req.params.name)}`,
     { text: true, contentType: 'application/json' }));
-router.get('/security/audit', ...dosProtect, authorize, (req, res) => proxy(req, res, 'GET', '/audit', { query: true }));
+router.get('/security/audit', ...dosProtect, ...requireAdmin, (req, res) => proxy(req, res, 'GET', '/audit', { query: true }));
 
 // Fleet SBOM/CVE reports (uploaded by the build system). Read-only from the UI,
 // except for triggering a rescan of the stored SBOMs.
-router.get('/security/fleets', ...dosProtect, authorize, (req, res) => proxy(req, res, 'GET', '/fleets'));
-router.post('/security/fleets/rescan', ...dosProtect, authorize, (req, res) =>
+router.get('/security/fleets', ...dosProtect, ...requireAdmin, (req, res) => proxy(req, res, 'GET', '/fleets'));
+router.post('/security/fleets/rescan', ...dosProtect, ...requireAdmin, (req, res) =>
   proxy(req, res, 'POST', '/fleets/rescan'));
-router.get('/security/fleets/:fleet/releases', ...dosProtect, authorize, (req, res) =>
+router.get('/security/fleets/:fleet/releases', ...dosProtect, ...requireAdmin, (req, res) =>
   proxy(req, res, 'GET', `/fleets/${encodeURIComponent(req.params.fleet)}/releases`));
-router.get('/security/fleets/:fleet/releases/:release', ...dosProtect, authorize, (req, res) =>
+router.get('/security/fleets/:fleet/releases/:release', ...dosProtect, ...requireAdmin, (req, res) =>
   proxy(req, res, 'GET',
     `/fleets/${encodeURIComponent(req.params.fleet)}/releases/${encodeURIComponent(req.params.release)}`));
-router.get('/security/fleets/:fleet/releases/:release/sbom/:service', ...dosProtect, authorize, (req, res) =>
+router.get('/security/fleets/:fleet/releases/:release/sbom/:service', ...dosProtect, ...requireAdmin, (req, res) =>
   proxy(req, res, 'GET',
     `/fleets/${encodeURIComponent(req.params.fleet)}/releases/${encodeURIComponent(req.params.release)}` +
     `/sbom/${encodeURIComponent(req.params.service)}`,

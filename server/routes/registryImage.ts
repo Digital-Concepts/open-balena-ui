@@ -1,5 +1,5 @@
 import { json, Router } from 'express';
-import authorize from '../middleware/authorize';
+import { requireAdmin } from '../middleware';
 import dosProtect from '../middleware/dosProtect';
 import { deleteRegistryImage, deleteOrphanedRegistryImages } from '../controller/registryImage';
 
@@ -33,7 +33,7 @@ router.use(json());
 router.post<Record<string, never>, DeleteRegistryImageSuccessResponse | ErrorResponse, DeleteRegistryImageRequest>(
   '/deleteRegistryImage',
   ...dosProtect,
-  authorize,
+  ...requireAdmin,
   async (req, res) => {
     const { imageLocationHash } = req.body;
 
@@ -56,7 +56,7 @@ router.post<
   Record<string, never>,
   DeleteOrphanedRegistryImagesSuccessResponse | ErrorResponse,
   DeleteOrphanedRegistryImagesRequest
->('/deleteOrphanedRegistryImages', ...dosProtect, authorize, async (req, res) => {
+>('/deleteOrphanedRegistryImages', ...dosProtect, ...requireAdmin, async (req, res) => {
   const { databaseImages } = req.body;
 
   if (!Array.isArray(databaseImages)) {

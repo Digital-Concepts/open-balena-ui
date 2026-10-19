@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { authorize, dosProtect } from '../middleware';
+import { dosProtect, requireAdmin } from '../middleware';
 
 const router = express.Router();
 
@@ -38,7 +38,7 @@ async function proxy(
 // Path is under /task-dispatcher/, NOT /task/: host nginx proxies /task/ to the
 // task-dispatcher's device channel (:7000), so a /task/* path here would be
 // shadowed. /task-dispatcher/* falls through nginx's `location /` to this BFF.
-router.post('/task-dispatcher/command', ...dosProtect, authorize, (req, res) =>
+router.post('/task-dispatcher/command', ...dosProtect, ...requireAdmin, (req, res) =>
   proxy(req, res, 'POST', '/task/admin/tasks', { body: true }));
 
 export default router;

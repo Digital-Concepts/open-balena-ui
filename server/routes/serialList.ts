@@ -1,11 +1,11 @@
 import express, { Request, Response } from 'express';
-import { authorize, dosProtect } from '../middleware';
+import { dosProtect, requireAdmin } from '../middleware';
 
 const router = express.Router();
 
 const token = process.env.MIDDLEMAN_TOKEN;
 
-router.get('/getGateways', ...dosProtect, authorize, async (req: Request, res: Response) => {
+router.get('/getGateways', ...dosProtect, ...requireAdmin, async (req: Request, res: Response) => {
   try {
     const middlemanUrl = process.env.MIDDLEMAN_URL;
 
@@ -49,7 +49,7 @@ router.get('/getGateways', ...dosProtect, authorize, async (req: Request, res: R
   }
 });
 
-router.post('/registerGateway', ...dosProtect, authorize, async (req: Request, res: Response) => {
+router.post('/registerGateway', ...dosProtect, ...requireAdmin, async (req: Request, res: Response) => {
   try {
     const { eurid, serial, cpu_serial, mac_address, productId } = req.body;
 
@@ -108,7 +108,7 @@ router.post('/registerGateway', ...dosProtect, authorize, async (req: Request, r
 });
 
 
-router.post('/deleteGateway', ...dosProtect, authorize, async (req: Request, res: Response) => {
+router.post('/deleteGateway', ...dosProtect, ...requireAdmin, async (req: Request, res: Response) => {
   try {
     const { cpu_serial } = req.body;
 

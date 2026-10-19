@@ -7,6 +7,7 @@ import taskDispatcherRoutes from '../taskDispatcher';
 // Stub the auth + rate-limit middleware so these tests exercise the proxy logic in isolation.
 vi.mock('../../middleware', () => ({
   authorize: (_req: any, _res: any, next: any) => next(),
+  requireAdmin: [],
   dosProtect: [],
 }));
 

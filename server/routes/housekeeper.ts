@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { authorize, dosProtect } from '../middleware';
+import { dosProtect, requireAdmin } from '../middleware';
 
 const router = express.Router();
 
@@ -41,14 +41,14 @@ async function proxy(
   }
 }
 
-router.get('/housekeeper/status', ...dosProtect, authorize, (req, res) => proxy(req, res, 'GET', '/status'));
-router.get('/housekeeper/config', ...dosProtect, authorize, (req, res) => proxy(req, res, 'GET', '/config'));
-router.put('/housekeeper/config', ...dosProtect, authorize, (req, res) => proxy(req, res, 'PUT', '/config', { body: true }));
-router.get('/housekeeper/runs', ...dosProtect, authorize, (req, res) => proxy(req, res, 'GET', '/runs'));
-router.get('/housekeeper/runs/:id/log', ...dosProtect, authorize, (req, res) =>
+router.get('/housekeeper/status', ...dosProtect, ...requireAdmin, (req, res) => proxy(req, res, 'GET', '/status'));
+router.get('/housekeeper/config', ...dosProtect, ...requireAdmin, (req, res) => proxy(req, res, 'GET', '/config'));
+router.put('/housekeeper/config', ...dosProtect, ...requireAdmin, (req, res) => proxy(req, res, 'PUT', '/config', { body: true }));
+router.get('/housekeeper/runs', ...dosProtect, ...requireAdmin, (req, res) => proxy(req, res, 'GET', '/runs'));
+router.get('/housekeeper/runs/:id/log', ...dosProtect, ...requireAdmin, (req, res) =>
   proxy(req, res, 'GET', `/runs/${encodeURIComponent(req.params.id)}/log`, { text: true }));
-router.get('/housekeeper/audit', ...dosProtect, authorize, (req, res) => proxy(req, res, 'GET', '/audit', { query: true }));
-router.get('/housekeeper/fleets', ...dosProtect, authorize, (req, res) => proxy(req, res, 'GET', '/fleets'));
-router.post('/housekeeper/run', ...dosProtect, authorize, (req, res) => proxy(req, res, 'POST', '/run', { body: true }));
+router.get('/housekeeper/audit', ...dosProtect, ...requireAdmin, (req, res) => proxy(req, res, 'GET', '/audit', { query: true }));
+router.get('/housekeeper/fleets', ...dosProtect, ...requireAdmin, (req, res) => proxy(req, res, 'GET', '/fleets'));
+router.post('/housekeeper/run', ...dosProtect, ...requireAdmin, (req, res) => proxy(req, res, 'POST', '/run', { body: true }));
 
 export default router;
