@@ -1,9 +1,13 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useDataProvider } from 'react-admin';
 
 export function useModifyRole() {
   const dataProvider = useDataProvider();
+  const queryClient = useQueryClient();
 
   const modifyMappingTable = async (data, field, table, sourceField, destField) => {
+    // Field never loaded/seeded: leave the mapping untouched rather than deleting everything.
+    if (!Array.isArray(data[field])) return;
     let existingMappings = await dataProvider.getList(table, {
       pagination: { page: 1, perPage: 1000 },
       sort: { field: 'id', order: 'ASC' },
@@ -33,6 +37,9 @@ export function useModifyRole() {
       Object.keys(mappings).map((x) =>
         modifyMappingTable(data, mappings[x].field, mappings[x].table, mappings[x].sourceField, mappings[x].destField),
       ),
+    );
+    await Promise.all(
+      Object.keys(mappings).map((x) => queryClient.invalidateQueries({ queryKey: [mappings[x].table] })),
     );
     Object.keys(mappings).forEach((x) => delete data[mappings[x].field]);
     return data;

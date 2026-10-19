@@ -3,6 +3,7 @@ import { Box } from '@mui/material';
 import { Identifier, Loading, RaRecord, useGetList, useRecordContext } from 'react-admin';
 import { useFormContext } from 'react-hook-form';
 import GenericTransferList, { TransferListOption } from '../components/genericTransferList';
+import { useFreshSince } from '../lib/useFreshSince';
 
 interface OrganizationRecord extends RaRecord {
   name: string;
@@ -32,7 +33,12 @@ export const ManageOrganizations: React.FC<ManageOrganizationsProps> = ({ source
     },
   );
 
-  const { data: membershipRecords = [], isLoading: membershipsLoading } = useGetList<OrganizationMembershipRecord>(
+  const {
+    data: membershipRecords = [],
+    isLoading: membershipsLoading,
+    isError: membershipsError,
+    dataUpdatedAt: membershipsUpdatedAt,
+  } = useGetList<OrganizationMembershipRecord>(
     reference,
     {
       pagination: { page: 1, perPage: 1000 },
@@ -41,9 +47,11 @@ export const ManageOrganizations: React.FC<ManageOrganizationsProps> = ({ source
     },
     {
       enabled: Boolean(record?.id),
+      refetchOnMount: 'always',
     },
   );
 
+  const membershipsFresh = useFreshSince(record?.id, membershipsUpdatedAt, membershipsLoading);
   const initializedRef = React.useRef(false);
 
   React.useEffect(() => {
@@ -60,12 +68,12 @@ export const ManageOrganizations: React.FC<ManageOrganizationsProps> = ({ source
   );
 
   React.useEffect(() => {
-    if (!initializedRef.current && !organizationsLoading && !membershipsLoading) {
+    if (!initializedRef.current && !organizationsLoading && membershipsFresh) {
       setSelection(selectedIds);
       setValue(source, selectedIds, { shouldDirty: false });
       initializedRef.current = true;
     }
-  }, [membershipsLoading, organizationsLoading, selectedIds, setValue, source]);
+  }, [membershipsFresh, organizationsLoading, selectedIds, setValue, source]);
 
   const organizationOptions = React.useMemo<TransferListOption[]>(
     () => organizationRecords.map((organization) => ({ id: organization.id, label: organization.name })),
@@ -80,7 +88,11 @@ export const ManageOrganizations: React.FC<ManageOrganizationsProps> = ({ source
     [setValue, source],
   );
 
-  if (organizationsLoading || membershipsLoading) {
+  if (membershipsError || !record?.id) {
+    return <Box sx={{ my: 2 }}>Could not load organizations; editing is disabled to avoid data loss.</Box>;
+  }
+
+  if (organizationsLoading || membershipsLoading || !membershipsFresh) {
     return <Loading />;
   }
 

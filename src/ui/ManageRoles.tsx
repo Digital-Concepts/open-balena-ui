@@ -3,6 +3,7 @@ import { Box } from '@mui/material';
 import { Identifier, Loading, RaRecord, useGetList, useRecordContext } from 'react-admin';
 import { useFormContext } from 'react-hook-form';
 import GenericTransferList, { TransferListOption } from '../components/genericTransferList';
+import { useFreshSince } from '../lib/useFreshSince';
 
 interface RoleRecord extends RaRecord {
   name: string;
@@ -29,7 +30,12 @@ export const ManageRoles: React.FC<ManageRolesProps> = ({ source, reference, tar
     filter: {},
   });
 
-  const { data: assignmentRecords = [], isLoading: assignmentsLoading } = useGetList<RoleAssignmentRecord>(
+  const {
+    data: assignmentRecords = [],
+    isLoading: assignmentsLoading,
+    isError: assignmentsError,
+    dataUpdatedAt: assignmentsUpdatedAt,
+  } = useGetList<RoleAssignmentRecord>(
     reference,
     {
       pagination: { page: 1, perPage: 1000 },
@@ -38,9 +44,11 @@ export const ManageRoles: React.FC<ManageRolesProps> = ({ source, reference, tar
     },
     {
       enabled: Boolean(record?.id),
+      refetchOnMount: 'always',
     },
   );
 
+  const assignmentsFresh = useFreshSince(record?.id, assignmentsUpdatedAt, assignmentsLoading);
   const initializedRef = React.useRef(false);
 
   React.useEffect(() => {
@@ -54,12 +62,12 @@ export const ManageRoles: React.FC<ManageRolesProps> = ({ source, reference, tar
   );
 
   React.useEffect(() => {
-    if (!initializedRef.current && !rolesLoading && !assignmentsLoading) {
+    if (!initializedRef.current && !rolesLoading && assignmentsFresh) {
       setSelection(selectedIds);
       setValue(source, selectedIds, { shouldDirty: false });
       initializedRef.current = true;
     }
-  }, [assignmentsLoading, rolesLoading, selectedIds, setValue, source]);
+  }, [assignmentsFresh, rolesLoading, selectedIds, setValue, source]);
 
   const roleOptions = React.useMemo<TransferListOption[]>(
     () => roleRecords.map((role) => ({ id: role.id, label: role.name })),
@@ -74,7 +82,11 @@ export const ManageRoles: React.FC<ManageRolesProps> = ({ source, reference, tar
     [setValue, source],
   );
 
-  if (rolesLoading || assignmentsLoading) {
+  if (assignmentsError || !record?.id) {
+    return <Box sx={{ my: 2 }}>Could not load roles; editing is disabled to avoid data loss.</Box>;
+  }
+
+  if (rolesLoading || assignmentsLoading || !assignmentsFresh) {
     return <Loading />;
   }
 

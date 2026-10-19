@@ -11,6 +11,7 @@ import {
   parseRawPermission,
   type ListedPermission,
 } from '../lib/permissionsNormalizer';
+import { useFreshSince } from '../lib/useFreshSince';
 
 interface PermissionRecord extends RaRecord {
   name: string; // e.g. 'resin.device.read?actor eq @__ACTOR_ID'
@@ -52,15 +53,22 @@ export const ManagePermissions: React.FC<ManagePermissionsProps> = ({ source, re
     filter: {},
   });
 
-  const { data: assignmentRecords = [], isLoading: assignmentsLoading } = useGetList<PermissionAssignmentRecord>(
+  const {
+    data: assignmentRecords = [],
+    isLoading: assignmentsLoading,
+    isError: assignmentsError,
+    dataUpdatedAt: assignmentsUpdatedAt,
+  } = useGetList<PermissionAssignmentRecord>(
     reference,
     {
       pagination: { page: 1, perPage: 1000 },
       sort: { field: 'id', order: 'ASC' },
       filter: record?.id ? { [target]: record.id } : {},
     },
-    { enabled: Boolean(record?.id) },
+    { enabled: Boolean(record?.id), refetchOnMount: 'always' },
   );
+
+  const assignmentsFresh = useFreshSince(record?.id, assignmentsUpdatedAt, assignmentsLoading);
 
   // Reset selection when record changes
   React.useEffect(() => {
@@ -100,7 +108,7 @@ export const ManagePermissions: React.FC<ManagePermissionsProps> = ({ source, re
 
   // Initialize UI selection and hidden form value once data is ready
   React.useEffect(() => {
-    if (permissionsLoading || assignmentsLoading) return;
+    if (permissionsLoading || !assignmentsFresh) return;
 
     const keys = Array.from(new Set(selectedRawIds.map((id) => idToKey.get(id)).filter((k): k is string => !!k)));
     setSelectedKeys(keys);
@@ -109,7 +117,7 @@ export const ManagePermissions: React.FC<ManagePermissionsProps> = ({ source, re
     const expandedItems = expandSelections(collapsed, keys) as ParsedItem[];
     const expandedRawIds = expandedItems.map((it) => it.id);
     setValue(source, expandedRawIds, { shouldDirty: false });
-  }, [permissionsLoading, assignmentsLoading, selectedRawIds, idToKey, collapsed, setValue, source]);
+  }, [permissionsLoading, assignmentsFresh, selectedRawIds, idToKey, collapsed, setValue, source]);
 
   // Options for the transfer list
   // We rebuild the options from keyToItems to store verb/predicate parts for styling
@@ -162,7 +170,11 @@ export const ManagePermissions: React.FC<ManagePermissionsProps> = ({ source, re
     [collapsed, setValue, source],
   );
 
-  if (permissionsLoading || assignmentsLoading) return <Loading />;
+  if (assignmentsError || !record?.id) {
+    return <Box sx={{ my: 2 }}>Could not load permissions; editing is disabled to avoid data loss.</Box>;
+  }
+
+  if (permissionsLoading || assignmentsLoading || !assignmentsFresh) return <Loading />;
 
   return (
     <Box sx={{ width: 800, maxWidth: '100%' }}>
