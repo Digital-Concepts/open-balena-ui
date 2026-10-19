@@ -35,6 +35,7 @@ interface DeviceConnectButtonProps extends Omit<ButtonProps, 'children' | 'onCli
   connectIcon?: React.ReactNode;
   connectIconTooltip?: React.ReactNode;
   label?: React.ReactNode;
+  ConnectComponent?: React.ComponentType<{ record?: ResourceRecord }>;
 }
 
 export const DeviceConnectButton: React.FC<DeviceConnectButtonProps> = ({
@@ -42,6 +43,7 @@ export const DeviceConnectButton: React.FC<DeviceConnectButtonProps> = ({
   connectIcon,
   connectIconTooltip = 'Connect',
   label,
+  ConnectComponent = DeviceConnect,
   ...buttonProps
 }) => {
   const [open, setOpen] = React.useState(false);
@@ -102,7 +104,7 @@ export const DeviceConnectButton: React.FC<DeviceConnectButtonProps> = ({
           </Grid>
         </DialogTitle>
         <DialogContent sx={styles.dialogContent}>
-          <DeviceConnect record={record} />
+          <ConnectComponent record={record} />
         </DialogContent>
       </Dialog>
 

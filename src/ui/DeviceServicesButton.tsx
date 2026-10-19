@@ -6,9 +6,10 @@ import ListIcon from '@mui/icons-material/List';
 import Tooltip from '@mui/material/Tooltip';
 import DeviceServices from './DeviceServices';
 
-export const DeviceServicesButton: React.FC<ButtonProps & { label?: string; device: any }> = ({
+export const DeviceServicesButton: React.FC<ButtonProps & { label?: string; device: any; ServicesComponent?: React.ComponentType<{ device: any }> }> = ({
   label,
   device,
+  ServicesComponent = DeviceServices,
   ...props
 }) => {
   const [open, setOpen] = React.useState(false);
@@ -33,7 +34,7 @@ export const DeviceServicesButton: React.FC<ButtonProps & { label?: string; devi
           </DialogTitle>
         </DialogTitle>
         <DialogContent>
-          <DeviceServices device={device} />
+          <ServicesComponent device={device} />
         </DialogContent>
       </Dialog>
     </>
