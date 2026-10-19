@@ -1,8 +1,10 @@
 import base32Encode from 'base32-encode';
 import { hashSync } from 'bcrypt-ts';
-import { useDataProvider } from 'react-admin';
+import { useQueryClient } from '@tanstack/react-query';
+import { DataProvider, useDataProvider, useNotify, useRedirect } from 'react-admin';
 import { useDeleteApiKey, useGenerateApiKey } from './apiKey';
 import { deleteAllRelated } from './delete';
+import { AccountChoice, apiMessage, putAccount } from './adminApi';
 
 const hashPassword = (password) => {
   const saltRounds = 10;
@@ -36,20 +38,86 @@ export function useCreateUser() {
   };
 }
 
+export const DEFAULT_USER_ROLE = 'default-user';
+
+// Grants the openBalena `default-user` role (required for /login_). Returns an error message or null.
+export async function assignDefaultRole(
+  dataProvider: Pick<DataProvider, 'getList' | 'create'>,
+  userId: number | string,
+): Promise<string | null> {
+  const manual = `Add it manually under Access → Users → Roles.`;
+  try {
+    const roles = await dataProvider.getList('role', {
+      pagination: { page: 1, perPage: 1 },
+      sort: { field: 'id', order: 'ASC' },
+      filter: { name: DEFAULT_USER_ROLE },
+    });
+    const role = roles.data.find((x) => x.name === DEFAULT_USER_ROLE);
+    if (!role) return `User created, but role '${DEFAULT_USER_ROLE}' does not exist. ${manual}`;
+    await dataProvider.create('user-has-role', { data: { user: userId, role: role.id } });
+    return null;
+  } catch {
+    return `User created, but assigning role '${DEFAULT_USER_ROLE}' failed. ${manual}`;
+  }
+}
+
+const NO_CHOICE: AccountChoice = { type: 'internal', orgId: '', permissionSetId: '' };
+
+// Create-onSuccess handler: sets up the account type, then does react-admin's default notify + redirect.
+// Customer: the server syncs membership + role. Internal: default role, then the optional permission set.
+export function useUserCreated(getChoice?: () => AccountChoice) {
+  const dataProvider = useDataProvider();
+  const notify = useNotify();
+  const redirect = useRedirect();
+  const queryClient = useQueryClient();
+
+  return async (user: { id: number | string }) => {
+    const choice = getChoice?.() ?? NO_CHOICE;
+    const failed: string[] = [];
+    if (choice.type === 'customer') {
+      const r = await putAccount(user.id, choice);
+      if (!r.ok) failed.push(`customer account (${apiMessage(r.body, 'unknown error')})`);
+    } else {
+      if (await assignDefaultRole(dataProvider, user.id)) failed.push(`role '${DEFAULT_USER_ROLE}'`);
+      if (choice.permissionSetId !== '') {
+        const r = await putAccount(user.id, choice);
+        if (!r.ok) failed.push(`permission set (${apiMessage(r.body, 'unknown error')})`);
+      }
+    }
+    const error = failed.length ? `User created, but not saved: ${failed.join('; ')}. Fix it on the user page.` : null;
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['user-has-role'] }),
+      queryClient.invalidateQueries({ queryKey: ['organization membership'] }),
+    ]);
+    if (error) notify(error, { type: 'error' });
+    else notify('ra.notification.created', { type: 'info', messageArgs: { smart_count: 1 } });
+    redirect('edit', 'user', user.id, user);
+  };
+}
+
+export const MAPPING_FIELDS = ['organizationArray', 'roleArray', 'permissionArray'];
+
+// Only internal accounts may write openBalena mappings from the user form; the server owns customers'.
+export function guardMappings<T extends Record<string, any>>(accountType: string | null, data: T): T {
+  if (accountType !== 'internal') MAPPING_FIELDS.forEach((f) => delete data[f]);
+  return data;
+}
+
 export function useModifyUser() {
   const dataProvider = useDataProvider();
+  const queryClient = useQueryClient();
 
   const modifyMappingTable = async (data, field, table, sourceField, destField) => {
+    // Field never loaded/seeded: leave the mapping untouched rather than deleting everything.
+    if (!Array.isArray(data[field])) return;
     let existingMappings = await dataProvider.getList(table, {
       pagination: { page: 1, perPage: 1000 },
       sort: { field: 'id', order: 'ASC' },
       filter: { [sourceField]: data.id },
     });
     let existingData = existingMappings.data.map((x) => x[destField]);
-    let createData = (data[field] || []).filter((value) => !existingData.includes(value));
-    let deleteIds = existingMappings.data
-      .filter((value) => !(data[field] || []).includes(value[destField]))
-      .map((x) => x.id);
+    let createData = data[field].filter((value) => !existingData.includes(value));
+    let deleteIds = existingMappings.data.filter((value) => !data[field].includes(value[destField])).map((x) => x.id);
     await Promise.all(
       createData.map((newData) =>
         dataProvider.create(table, { data: { [sourceField]: data.id, [destField]: newData } }),
@@ -78,6 +146,9 @@ export function useModifyUser() {
       Object.keys(mappings).map((x) =>
         modifyMappingTable(data, mappings[x].field, mappings[x].table, mappings[x].sourceField, mappings[x].destField),
       ),
+    );
+    await Promise.all(
+      Object.keys(mappings).map((x) => queryClient.invalidateQueries({ queryKey: [mappings[x].table] })),
     );
     Object.keys(mappings).forEach((x) => delete data[mappings[x].field]);
     return data;

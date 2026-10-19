@@ -15,6 +15,7 @@ import {
 	Checkbox,
 	FormControlLabel,
 } from '@mui/material';
+import { DEVICE_SEARCH_KEY } from '../lib/deviceFilters';
 import type { Theme } from '@mui/material/styles';
 import {
 	Done,
@@ -76,6 +77,7 @@ import DeleteDeviceButton, { DeleteDeviceButtonProps } from '../ui/DeleteDeviceB
 import DeviceConnectButton from '../ui/DeviceConnectButton';
 import DeviceServicesButton from '../ui/DeviceServicesButton';
 import Row from '../ui/Row';
+import { renderIpAddressLink } from '../ui/ipAddressLink';
 import SelectOperatingSystem from '../ui/SelectOperatingSystem';
 import SemVerChip, { getSemver } from '../ui/SemVerChip';
 import versions from '../versions';
@@ -172,7 +174,6 @@ export const ReleaseField: React.FC<Omit<FunctionFieldProps<any>, 'render'>> = (
   );
 };
 
-const DEVICE_SEARCH_KEY = '#device name,note,ip address,status@ilike';
 const deviceFilters = [<SearchInput source={DEVICE_SEARCH_KEY} alwaysOn />];
 
 const ReleaseFieldContent: React.FC<{
@@ -677,48 +678,7 @@ export const DeviceList: React.FC<ListProps<any>> = (props) => {
 						)}
 					/>
 
-					<FunctionField
-						label='IP Address'
-						render={(record) => {
-							const ipAddress = record['ip address'] || '';
-							const ipv4Regex = /\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/g;
-							const ipv4Addresses = ipAddress.match(ipv4Regex) || [];
-							const displayIp = ipv4Addresses.join(', ');
-							const hrefIp = ipv4Addresses[0];
-							return displayIp && hrefIp ? (
-								<a
-									href={`http://${hrefIp}`}
-									target='_blank'
-									rel='noopener noreferrer'
-									style={{
-										textDecoration: 'none',
-										padding: '6px 14px',
-										borderRadius: '8px',
-										backgroundColor: 'rgba(25, 118, 210, 0.15)',
-										color: '#1976d2',
-										display: 'inline-block',
-										fontSize: '0.875rem',
-										fontWeight: 400,
-										transition: 'all 0.2s ease',
-										cursor: 'pointer',
-										border: '1px solid rgba(25, 118, 210, 0.3)',
-									}}
-									onMouseEnter={(e) => {
-										(e.currentTarget as HTMLAnchorElement).style.backgroundColor = 'rgba(25, 118, 210, 0.25)';
-										(e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(25, 118, 210, 0.5)';
-									}}
-									onMouseLeave={(e) => {
-										(e.currentTarget as HTMLAnchorElement).style.backgroundColor = 'rgba(25, 118, 210, 0.15)';
-										(e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(25, 118, 210, 0.3)';
-									}}
-								>
-									{displayIp}
-								</a>
-							) : (
-								''
-							);
-						}}
-					/>
+					<FunctionField label='IP Address' render={renderIpAddressLink} />
 
 					<ReleaseField label='Current Release' source='is running-release' />
 
@@ -750,6 +710,11 @@ export const DeviceList: React.FC<ListProps<any>> = (props) => {
 
 					<ReferenceField label='Fleet' source='belongs to-application' reference='application' target='id'>
 						<TextField source='app name' />
+					</ReferenceField>
+					<ReferenceField label='Organization' source='belongs to-application' reference='application' target='id' link={false} sortable={false}>
+						<ReferenceField source='organization' reference='organization' target='id' link={false}>
+							<TextField source='name' />
+						</ReferenceField>
 					</ReferenceField>
 
 					<Toolbar sx={{ background: 'none', padding: '0' }}>
@@ -942,6 +907,11 @@ const ClientDeviceList: React.FC<{ clientName: string }> = ({ clientName }) => {
 				<FunctionField label='Notes' render={(record) => record.note || ''} />
 				<ReferenceField label='Fleet' source='belongs to-application' reference='application' target='id'>
 					<TextField source='app name' />
+				</ReferenceField>
+				<ReferenceField label='Organization' source='belongs to-application' reference='application' target='id' link={false} sortable={false}>
+					<ReferenceField source='organization' reference='organization' target='id' link={false}>
+						<TextField source='name' />
+					</ReferenceField>
 				</ReferenceField>
 				<Toolbar sx={{ background: 'none', padding: '0' }}>
 					<ShowButton variant='outlined' label='' size='small' />

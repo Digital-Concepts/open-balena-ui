@@ -1,10 +1,12 @@
 import * as React from 'react';
 import {
+  BulkDeleteButton,
   Create,
   Datagrid,
   DeleteButton,
   Edit,
   EditButton,
+  EditProps,
   List,
   ReferenceManyField,
   SimpleForm,
@@ -14,11 +16,17 @@ import {
   Toolbar,
   required,
 } from 'react-admin';
+import { OrganizationFleetsForm } from '../ui/ManageOrganizationFleets';
+import OrgCustomerSettings, { OrgSettingsProvider } from '../ui/OrgCustomerSettings';
 
 export const OrganizationList: React.FC = () => {
   return (
     <List>
-      <Datagrid size='medium' rowClick={false}>
+      <Datagrid
+        size='medium'
+        rowClick={false}
+        bulkActionButtons={<BulkDeleteButton mutationMode='pessimistic' />}
+      >
         <TextField source='name' />
         <TextField source='handle' />
 
@@ -30,7 +38,7 @@ export const OrganizationList: React.FC = () => {
 
         <Toolbar>
           <EditButton label='' size='small' variant='outlined' />
-          <DeleteButton mutationMode='optimistic' label='' size='small' variant='outlined' />
+          <DeleteButton mutationMode='pessimistic' label='' size='small' variant='outlined' />
         </Toolbar>
       </Datagrid>
     </List>
@@ -46,12 +54,15 @@ export const OrganizationCreate: React.FC = () => (
   </Create>
 );
 
-export const OrganizationEdit: React.FC = () => (
-  <Edit title='Edit Org'>
-    <SimpleForm>
-      <TextInput source='name' validate={required()} size='large' fullWidth={true} />
-      <TextInput source='handle' validate={required()} size='large' fullWidth={true} />
-    </SimpleForm>
+export const OrganizationEdit: React.FC<EditProps> = (props) => (
+  <Edit title='Edit Org' mutationMode='pessimistic' {...props}>
+    <OrgSettingsProvider>
+      <OrganizationFleetsForm>
+        <TextInput source='name' validate={required()} size='large' fullWidth={true} />
+        <TextInput source='handle' validate={required()} size='large' fullWidth={true} />
+        <OrgCustomerSettings />
+      </OrganizationFleetsForm>
+    </OrgSettingsProvider>
   </Edit>
 );
 
