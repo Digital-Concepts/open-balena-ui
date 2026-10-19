@@ -17,7 +17,7 @@ describe('customer terminal', () => {
     const h = { Authorization: `Bearer ${await token()}` };
     expect((await request(app).post('/api/customer/ssh-key').set(h).send({ publicKey: 'not a key' })).status).toBe(400);
     const key = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample open-balena-remote';
-    expect((await request(app).post('/api/customer/ssh-key').set(h).send({ publicKey: key, user: 1 })).status).toBe(200);
+    expect((await request(app).post('/api/customer/ssh-key').set(h).send({ publicKey: key, deviceUuid: OWN_UUID, user: 1 })).status).toBe(200);
     expect(calls.find((c) => c.method === 'POST' && c.path === '/v7/user__has__public_key')?.body).toEqual({
       user: 5,
       title: 'open-balena-remote',
@@ -28,7 +28,7 @@ describe('customer terminal', () => {
   it('replaces the existing remote key before posting the new one', async () => {
     const { token, calls } = setup(['device.terminal'], { publicKeys: [{ id: 3 }] });
     const key = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ open-balena-remote';
-    expect((await request(app).post('/api/customer/ssh-key').set('Authorization', `Bearer ${await token()}`).send({ publicKey: key })).status).toBe(200);
+    expect((await request(app).post('/api/customer/ssh-key').set('Authorization', `Bearer ${await token()}`).send({ publicKey: key, deviceUuid: OWN_UUID })).status).toBe(200);
     const lookup = calls.find((c) => c.method === 'GET' && c.path.startsWith('/v7/user__has__public_key'));
     expect(lookup?.path).toContain('user eq 5');
     const deleteIdx = calls.findIndex((c) => c.method === 'DELETE' && c.path === '/v7/user__has__public_key(3)');
@@ -41,7 +41,7 @@ describe('customer terminal', () => {
     const { token, calls } = setup(['device.terminal'], { publicKeys: [{ id: 3 }] });
     const auth = `Bearer ${await token()}`;
     const key = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ open-balena-remote';
-    expect((await request(app).post('/api/customer/ssh-key').set('Authorization', auth).send({ publicKey: key })).status).toBe(200);
+    expect((await request(app).post('/api/customer/ssh-key').set('Authorization', auth).send({ publicKey: key, deviceUuid: OWN_UUID })).status).toBe(200);
     const keyCalls = calls.filter((c) => c.path.startsWith('/v7/user__has__public_key'));
     expect(keyCalls.map((c) => c.method)).toEqual(['GET', 'DELETE', 'POST']);
     for (const c of keyCalls) expect(c.headers?.Authorization).toBe(auth);
@@ -53,7 +53,7 @@ describe('customer terminal', () => {
     global.fetch = vi.fn(async (url: string, init: any) =>
       String(url).includes('user__has__public_key') ? { ok: false, status: 403, json: async () => ({}) } : inner(url, init)) as any;
     const key = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ open-balena-remote';
-    expect((await request(app).post('/api/customer/ssh-key').set('Authorization', `Bearer ${await token()}`).send({ publicKey: key })).status).toBe(403);
+    expect((await request(app).post('/api/customer/ssh-key').set('Authorization', `Bearer ${await token()}`).send({ publicKey: key, deviceUuid: OWN_UUID })).status).toBe(403);
   });
 
   it('rejects multi-line, CR-containing and oversized keys without posting', async () => {

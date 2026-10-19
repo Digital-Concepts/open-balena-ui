@@ -17,6 +17,41 @@ export type PermissionSet = {
 export type Assignment = { userId: number; type: 'internal' | 'customer'; permissionSetId: number | null; orgId: number | null };
 export type OrgSettings = { orgId: number; isCustomer: boolean; permissionSetId: number | null; userCount: number };
 
+export type AuditEntryInput = {
+  ts?: string;
+  userId: number;
+  username?: string | null;
+  orgId?: number | null;
+  orgName?: string | null;
+  fleetId?: number | null;
+  fleetName?: string | null;
+  deviceUuid?: string | null;
+  deviceName?: string | null;
+  action: string;
+  details?: Record<string, unknown> | null;
+  result: 'ok' | 'failed';
+  error?: string | null;
+};
+
+export type AuditRow = {
+  id: number;
+  ts: string;
+  userId: number;
+  username: string | null;
+  orgId: number | null;
+  orgName: string | null;
+  fleetId: number | null;
+  fleetName: string | null;
+  deviceUuid: string | null;
+  deviceName: string | null;
+  action: string;
+  details: Record<string, unknown> | null;
+  result: 'ok' | 'failed';
+  error: string | null;
+};
+
+export type AuditQuery = { page: number; perPage: number; userId?: number; action?: string; fleetId?: number };
+
 export type PermissionSetInput = { name?: unknown; description?: unknown; capabilities?: unknown };
 
 export interface PermissionStore {
@@ -40,6 +75,9 @@ export interface PermissionStore {
   setOrgSettings(orgId: number, input: { permissionSetId?: unknown }): OrgSettings;
   listOrgUsers(orgId: number): number[];
   pruneUsers(existingUserIds: number[]): void;
+  recordAudit(entry: AuditEntryInput): void;
+  listAudit(q: AuditQuery): { data: AuditRow[]; total: number };
+  auditFilterValues(): { users: { id: number; username: string }[]; fleets: { id: number; name: string }[]; actions: string[] };
 }
 
 const SCHEMA = `
@@ -65,6 +103,26 @@ const SCHEMA = `
     user_id INTEGER PRIMARY KEY,
     org_id  INTEGER NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS audit_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts          TEXT    NOT NULL,
+    user_id     INTEGER NOT NULL,
+    username    TEXT,
+    org_id      INTEGER,
+    org_name    TEXT,
+    fleet_id    INTEGER,
+    fleet_name  TEXT,
+    device_uuid TEXT,
+    device_name TEXT,
+    action      TEXT    NOT NULL,
+    details     TEXT,
+    result      TEXT    NOT NULL CHECK (result IN ('ok','failed')),
+    error       TEXT
+  );
+  CREATE INDEX IF NOT EXISTS audit_log_ts ON audit_log (ts DESC);
+  CREATE INDEX IF NOT EXISTS audit_log_user ON audit_log (user_id, ts DESC);
+  CREATE INDEX IF NOT EXISTS audit_log_fleet ON audit_log (fleet_id, ts DESC);
+  CREATE INDEX IF NOT EXISTS audit_log_action ON audit_log (action, ts DESC);
 `;
 
 type Row = { id: number; name: string; description: string; capabilities: string; builtin: number };
@@ -75,6 +133,40 @@ const toSet = (r: Row): PermissionSet => ({
   description: r.description,
   capabilities: JSON.parse(r.capabilities) as Capability[],
   builtin: r.builtin === 1,
+});
+
+type AuditDbRow = {
+  id: number;
+  ts: string;
+  user_id: number;
+  username: string | null;
+  org_id: number | null;
+  org_name: string | null;
+  fleet_id: number | null;
+  fleet_name: string | null;
+  device_uuid: string | null;
+  device_name: string | null;
+  action: string;
+  details: string | null;
+  result: 'ok' | 'failed';
+  error: string | null;
+};
+
+const toAuditRow = (r: AuditDbRow): AuditRow => ({
+  id: r.id,
+  ts: r.ts,
+  userId: r.user_id,
+  username: r.username,
+  orgId: r.org_id,
+  orgName: r.org_name,
+  fleetId: r.fleet_id,
+  fleetName: r.fleet_name,
+  deviceUuid: r.device_uuid,
+  deviceName: r.device_name,
+  action: r.action,
+  details: r.details === null ? null : (JSON.parse(r.details) as Record<string, unknown>),
+  result: r.result,
+  error: r.error,
 });
 
 const validName = (name: unknown): string => {
@@ -326,6 +418,74 @@ export function openStore(path: string): PermissionStore {
         if (!liveAdminRemains && isAdminRow(a.permissionSetId)) continue;
         db.prepare('DELETE FROM user_permission_set WHERE user_id = ?').run(a.userId);
       }
+    },
+    recordAudit(e) {
+      db.prepare(
+        `INSERT INTO audit_log
+           (ts, user_id, username, org_id, org_name, fleet_id, fleet_name, device_uuid, device_name, action, details, result, error)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        e.ts ?? new Date().toISOString(),
+        e.userId,
+        e.username ?? null,
+        e.orgId ?? null,
+        e.orgName ?? null,
+        e.fleetId ?? null,
+        e.fleetName ?? null,
+        e.deviceUuid ?? null,
+        e.deviceName ?? null,
+        e.action,
+        e.details == null ? null : JSON.stringify(e.details),
+        e.result,
+        e.error ?? null,
+      );
+    },
+    listAudit({ page, perPage, userId, action, fleetId }) {
+      const where: string[] = [];
+      const params: (string | number)[] = [];
+      if (userId !== undefined) {
+        where.push('user_id = ?');
+        params.push(userId);
+      }
+      if (action !== undefined) {
+        where.push('action = ?');
+        params.push(action);
+      }
+      if (fleetId !== undefined) {
+        where.push('fleet_id = ?');
+        params.push(fleetId);
+      }
+      const clause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+      const total = (db.prepare(`SELECT COUNT(*) AS n FROM audit_log ${clause}`).get(...params) as { n: number }).n;
+      const rows = db
+        .prepare(`SELECT * FROM audit_log ${clause} ORDER BY ts DESC, id DESC LIMIT ? OFFSET ?`)
+        .all(...params, perPage, (page - 1) * perPage) as AuditDbRow[];
+      return { data: rows.map(toAuditRow), total };
+    },
+    auditFilterValues() {
+      const users = db
+        .prepare(
+          `SELECT a.user_id AS id, a.username AS name FROM audit_log a
+           WHERE a.id = (SELECT b.id FROM audit_log b WHERE b.user_id = a.user_id ORDER BY b.ts DESC, b.id DESC LIMIT 1)
+           ORDER BY a.user_id`,
+        )
+        .all() as { id: number; name: string | null }[];
+      const fleets = db
+        .prepare(
+          `SELECT a.fleet_id AS id, a.fleet_name AS name FROM audit_log a
+           WHERE a.fleet_id IS NOT NULL
+             AND a.id = (SELECT b.id FROM audit_log b WHERE b.fleet_id = a.fleet_id ORDER BY b.ts DESC, b.id DESC LIMIT 1)
+           ORDER BY a.fleet_id`,
+        )
+        .all() as { id: number; name: string | null }[];
+      const actions = (db.prepare('SELECT DISTINCT action FROM audit_log ORDER BY action').all() as { action: string }[]).map(
+        (r) => r.action,
+      );
+      return {
+        users: users.map((u) => ({ id: u.id, username: u.name ?? '' })),
+        fleets: fleets.map((f) => ({ id: f.id, name: f.name ?? '' })),
+        actions,
+      };
     },
   };
   return store;

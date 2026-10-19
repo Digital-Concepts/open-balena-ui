@@ -255,3 +255,82 @@ describe('customer users and org settings', () => {
     expect(store.listOrgUsers(10)).toEqual([7]);
   });
 });
+
+describe('audit log', () => {
+  const entry = (over: Record<string, unknown> = {}) => ({
+    userId: 1,
+    username: 'alice',
+    orgId: 10,
+    orgName: 'Org',
+    fleetId: 100,
+    fleetName: 'Fleet',
+    deviceUuid: 'abc',
+    deviceName: 'dev',
+    action: 'device.reboot',
+    result: 'ok' as const,
+    ...over,
+  });
+
+  it('stores an entry and returns details parsed', () => {
+    store.recordAudit(entry({ action: 'tag.create', details: { key: 'k' } }));
+    const { data, total } = store.listAudit({ page: 1, perPage: 10 });
+    expect(total).toBe(1);
+    expect(data[0]).toMatchObject({ userId: 1, username: 'alice', action: 'tag.create', details: { key: 'k' }, result: 'ok', error: null });
+    expect(typeof data[0].id).toBe('number');
+    expect(new Date(data[0].ts).toISOString()).toBe(data[0].ts);
+  });
+  it('returns null details when none given', () => {
+    store.recordAudit(entry());
+    expect(store.listAudit({ page: 1, perPage: 10 }).data[0].details).toBeNull();
+  });
+  it('rejects an unknown result', () => {
+    expect(() => store.recordAudit(entry({ result: 'aborted' }))).toThrow();
+  });
+  it('orders by ts then id, newest first, and pages', () => {
+    store.recordAudit(entry({ ts: '2026-01-01T00:00:00.000Z', action: 'tag.create' }));
+    store.recordAudit(entry({ ts: '2026-01-03T00:00:00.000Z', action: 'tag.update' }));
+    store.recordAudit(entry({ ts: '2026-01-03T00:00:00.000Z', action: 'tag.delete' }));
+    const all = store.listAudit({ page: 1, perPage: 10 });
+    expect(all.data.map((r) => r.action)).toEqual(['tag.delete', 'tag.update', 'tag.create']);
+    const p2 = store.listAudit({ page: 2, perPage: 2 });
+    expect(p2.total).toBe(3);
+    expect(p2.data.map((r) => r.action)).toEqual(['tag.create']);
+  });
+  it('filters by user, action and fleet, combined', () => {
+    store.recordAudit(entry({ userId: 1, fleetId: 100, action: 'device.reboot' }));
+    store.recordAudit(entry({ userId: 2, fleetId: 100, action: 'device.reboot' }));
+    store.recordAudit(entry({ userId: 2, fleetId: 200, action: 'ssh.set' }));
+    expect(store.listAudit({ page: 1, perPage: 10, userId: 2 }).total).toBe(2);
+    expect(store.listAudit({ page: 1, perPage: 10, action: 'ssh.set' }).total).toBe(1);
+    expect(store.listAudit({ page: 1, perPage: 10, fleetId: 100 }).total).toBe(2);
+    expect(store.listAudit({ page: 1, perPage: 10, userId: 2, fleetId: 100, action: 'device.reboot' }).total).toBe(1);
+  });
+  it('lists filter values with the latest snapshot name', () => {
+    store.recordAudit(entry({ ts: '2026-01-01T00:00:00.000Z', userId: 1, username: 'old', fleetId: 100, fleetName: 'F-old' }));
+    store.recordAudit(entry({ ts: '2026-01-02T00:00:00.000Z', userId: 1, username: 'new', fleetId: 100, fleetName: 'F-new' }));
+    store.recordAudit(entry({ ts: '2026-01-02T00:00:00.000Z', userId: 2, username: null, fleetId: null, fleetName: null, action: 'ssh.set' }));
+    expect(store.auditFilterValues()).toEqual({
+      users: [
+        { id: 1, username: 'new' },
+        { id: 2, username: '' },
+      ],
+      fleets: [{ id: 100, name: 'F-new' }],
+      actions: ['device.reboot', 'ssh.set'],
+    });
+  });
+  it('keeps the log through pruneUsers and reopening the schema', () => {
+    store.recordAudit(entry({ userId: 7 }));
+    store.pruneUsers([8]);
+    expect(store.listAudit({ page: 1, perPage: 10 }).total).toBe(1);
+  });
+  it('creates the schema idempotently', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'audit-'));
+    try {
+      const path = join(dir, 'a.db');
+      openStore(path).recordAudit(entry());
+      expect(openStore(path).listAudit({ page: 1, perPage: 10 }).total).toBe(1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

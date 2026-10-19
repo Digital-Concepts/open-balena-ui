@@ -68,13 +68,20 @@ export function inScope(scope: Scope, fleetId: number | null): boolean {
 async function inScopeOrThrow(req: Request, device: RawDevice | undefined): Promise<RawDevice> {
   if (!device) throw new HttpError(403, 'Device not accessible');
   const scope = await scopeFor(req);
-  if (!inScope(scope, refId(device.belongs_to__application))) throw new HttpError(403, 'Device not accessible');
+  const fleetId = refId(device.belongs_to__application);
+  if (!inScope(scope, fleetId)) throw new HttpError(403, 'Device not accessible');
+  // A client that left during the lookup gets no action (and so no unaudited one).
+  const res = req.res;
+  if (res && !res.writableFinished && (res.destroyed || req.socket?.destroyed)) throw new HttpError(499, 'Client disconnected');
+  req.auditDevice = { uuid: device.uuid, name: typeof device.device_name === 'string' ? device.device_name : null, fleetId };
   return device;
 }
 
-// Loads req.params.uuid; unknown and out-of-scope devices are indistinguishable (403).
-export async function loadDeviceInScope(req: Request): Promise<RawDevice> {
-  const uuid = String(req.params.uuid ?? '');
+export const isDeviceUuid = (v: unknown): v is string => typeof v === 'string' && UUID_RE.test(v);
+
+// Loads req.params.uuid (or the given uuid); unknown and out-of-scope devices are indistinguishable (403).
+export async function loadDeviceInScope(req: Request, uuidArg?: string): Promise<RawDevice> {
+  const uuid = String(uuidArg ?? req.params.uuid ?? '');
   if (!UUID_RE.test(uuid)) throw new HttpError(403, 'Device not accessible');
   const [device] = await odataGet<RawDevice>(
     odataQuery('device', { $select: DEVICE_SELECT, $filter: `uuid eq '${uuid}'` }),

@@ -44,7 +44,7 @@ const CustomerDeviceConnect: React.FC<{ record?: Record<string, any> }> = ({ rec
     void (async () => {
       try {
         const { publicKey, privateKey } = ssh(randomBytes(32), 'open-balena-remote');
-        await customerApi('/ssh-key', { method: 'POST', body: JSON.stringify({ publicKey }) });
+        await customerApi('/ssh-key', { method: 'POST', body: JSON.stringify({ publicKey, deviceUuid: info.uuid }) });
         const jwt = localStorage.getItem('auth') ?? '';
         const container = target === HOST ? '' : `&container=${encodeURIComponent(target)}`;
         setIframeUrl(

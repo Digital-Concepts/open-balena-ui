@@ -35,6 +35,8 @@ import serviceLabel from './components/serviceLabel';
 import user from './components/user';
 import permissionSet from './components/permissionSet';
 import { permissionSetsDataProvider } from './dataProvider/permissionSetsDataProvider';
+import { auditDataProvider } from './dataProvider/auditDataProvider';
+import audit from './components/audit';
 import { customerResources } from './customer/resources';
 import { CUSTOMER_RESOURCES, customerAdminShapedProvider } from './dataProvider/customerDataProvider';
 import { roleAwareDataProvider } from './dataProvider/roleAwareDataProvider';
@@ -156,6 +158,7 @@ const adminDataProvider = {
 
 const adminRouted = organizationDeleteGuard(routeByResource(adminDataProvider, {
   'permission-sets': permissionSetsDataProvider(httpClient),
+  'audit': auditDataProvider(httpClient),
 }));
 const dataProvider = roleAwareDataProvider(
   adminRouted,
@@ -194,6 +197,7 @@ const treeLayout: React.FC<React.ComponentProps<typeof Layout>> = (props) => {
 const adminResources = (
   <>
       <CustomRoutes>{customRoutes}</CustomRoutes>
+
       <Resource name='menu-access' options={{ label: 'Access', isMenuParent: true }} />
       <Resource name='organization' options={{ label: 'Orgs', menuParent: 'menu-access' }} {...organization} />
       <Resource name='user' options={{ label: 'Users', menuParent: 'menu-access' }} {...user} />
@@ -256,6 +260,7 @@ const adminResources = (
       <Resource name='menu-security' options={{ label: 'Security', isMenuParent: true }} />
       <Resource name='security' options={{ label: 'Vulnerabilities', menuParent: 'menu-security', severityMenu: true }} {...security} />
       <Resource name='security-fleets' options={{ label: 'Reports', menuParent: 'menu-security' }} {...securityFleets} />
+      <Resource name='audit' options={{ label: 'Audit' }} {...audit} />
 
       <Resource name='menu-serial-db' options={{ label: 'Serial DB', isMenuParent: true }} />
       <Resource name='gateways' options={{ label: 'Gateways', menuParent: 'menu-serial-db' }} {...serialList} />

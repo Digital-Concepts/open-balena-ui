@@ -96,10 +96,11 @@ export function setup(
     // A filter on a record id (`id eq N`, not `…_application eq N`) returns that record only if it is the known one.
     const byId = /(^|[^_a-z])id eq (\d+)/.exec(path)?.[2];
     if (path.startsWith('/v7/release'))
-      return json(byId ? (byId === '60' ? [{ id: 60 }] : []) : [{ id: 60, commit: 'c0ffee00', raw_version: '2.0.0', status: 'success', created_at: '2026-10-01', belongs_to__application: { __id: 10 } }]);
+      return json(byId ? (byId === '60' ? [{ id: 60, raw_version: '2.0.0' }] : []) : [{ id: 60, commit: 'c0ffee00', raw_version: '2.0.0', status: 'success', created_at: '2026-10-01', belongs_to__application: { __id: 10 } }]);
     if (path.startsWith('/v7/device_tag'))
-      return json(byId ? (byId === '8' ? [{ id: 8 }] : []) : [{ id: 8, tag_key: 'site', value: 'A' }]);
+      return json(byId ? (byId === '8' ? [{ id: 8, tag_key: 'site' }] : []) : [{ id: 8, tag_key: 'site', value: 'A' }]);
     if (path.startsWith('/v7/user(')) return json([{ username: 'kunde' }]);
+    if (path.startsWith('/v7/organization(')) return json([{ name: 'org-1' }]);
     if (path.startsWith('/v7/user__has__public_key')) return json(opts.publicKeys ?? []);
     if (path.startsWith('/device/v2/')) return { ok: true, status: 200, json: async () => [{ message: 'hello', timestamp: 1, serviceId: 2, isStderr: false, isSystem: false, secret: 'x' }] };
     return json([]);

@@ -13,6 +13,7 @@ import meRoutes from './routes/me';
 import customerRoutes from './customer/routes';
 import customerDeviceActionRoutes from './customer/deviceActions';
 import permissionRoutes from './permissions/routes';
+import auditRoutes from './audit/routes';
 import { initPermissions } from './permissions/init';
 import { sweepTempDirs } from './lib/deviceShell';
 
@@ -41,6 +42,7 @@ app.use('/', meRoutes);
 app.use('/', customerRoutes);
 app.use('/', customerDeviceActionRoutes);
 app.use('/', permissionRoutes);
+app.use('/', auditRoutes);
 app.use('/', registryImageRoutes);
 app.use('/', serialListRoutes);
 app.use('/', housekeeperRoutes);

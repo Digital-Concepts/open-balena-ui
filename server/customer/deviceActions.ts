@@ -5,6 +5,8 @@ import { HttpError, sendError, wrap } from '../lib/httpError';
 import dosProtect from '../middleware/dosProtect';
 import { requireCapability } from '../middleware/permissions';
 import { Capability } from '../permissions/capabilities';
+import { audited } from '../audit/record';
+import type { AuditAction } from '../audit/actions';
 import { UPLOAD_ROOT, assertUuid, setLogLevel, setSshState, uniqueFileNames } from '../lib/deviceShell';
 import { DeviceJob, parseUploads, shortName, streamLogs, streamZip, uploadFiles, userKey } from '../lib/deviceJob';
 import { loadDeviceInScope } from './scope';
@@ -28,6 +30,7 @@ async function targetOf(req: Request): Promise<Target> {
 /** Runs a one-shot gateway action with a job that always cleans up. */
 function gatewayAction(
   cap: Capability,
+  action: AuditAction,
   failure: string,
   run: (job: DeviceJob, target: Target, dir: string, req: Request) => Promise<void>,
   validate?: (req: Request) => void,
@@ -35,6 +38,7 @@ function gatewayAction(
   return [
     ...dosProtect,
     ...requireCapability(cap),
+    audited(action),
     wrap(async (req, res) => {
       const target = await targetOf(req);
       validate?.(req);
@@ -58,12 +62,14 @@ router.post(
   '/api/customer/devices/:uuid/ssh',
   ...gatewayAction(
     'device.ssh',
+    'ssh.set',
     'An error occurred while changing SSH status',
     async (job, target, dir, req) => {
       await setSshState(target.uuid, target.name, req.body.state, dir);
     },
     (req) => {
       if (req.body?.state !== 'on' && req.body?.state !== 'off') throw new HttpError(400, 'Invalid SSH state');
+      req.auditDetails = { state: req.body.state };
     },
   ),
 );
@@ -72,6 +78,7 @@ router.post(
   '/api/customer/devices/:uuid/log-level',
   ...gatewayAction(
     'device.loglevel',
+    'loglevel.set',
     'An error occurred while changing log level',
     async (job, target, dir, req) => {
       await setLogLevel(target.uuid, target.name, req.body.logLevels, dir);
@@ -80,6 +87,7 @@ router.post(
       if (typeof req.body?.logLevels !== 'string' || !LOG_LEVELS.has(req.body.logLevels)) {
         throw new HttpError(400, 'Invalid log level');
       }
+      req.auditDetails = { logLevels: req.body.logLevels };
     },
   ),
 );
@@ -104,6 +112,7 @@ router.post(
   '/api/customer/devices/:uuid/files',
   ...dosProtect,
   ...requireCapability('device.files'),
+  audited('files.upload'),
   scopeGuard,
   parseUpload,
   async (req: Request, res: Response) => {
@@ -117,6 +126,7 @@ router.post(
     let remoteNames: string[];
     try {
       remoteNames = uniqueFileNames(files.map((f) => f.originalname));
+      req.auditDetails = { count: remoteNames.length, names: remoteNames };
     } catch {
       removeUploads();
       res.status(400).json({ error: 'Invalid file name' });
@@ -138,6 +148,7 @@ router.post(
   '/api/customer/devices/:uuid/files/download',
   ...dosProtect,
   ...requireCapability('device.files'),
+  audited('files.download', { stream: true }),
   wrap(async (req, res) => {
     const target = await targetOf(req);
     const job = new DeviceJob(target.uuid, target.name, res, userKey(req));
@@ -155,6 +166,7 @@ router.post(
   '/api/customer/devices/:uuid/logs/download',
   ...dosProtect,
   ...requireCapability('device.logs.download'),
+  audited('logs.download', { stream: true }),
   wrap(async (req, res) => {
     const target = await targetOf(req);
     const job = new DeviceJob(target.uuid, target.name, res, userKey(req));

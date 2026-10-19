@@ -22,6 +22,7 @@ import {
 import { HttpError, wrap } from '../lib/httpError';
 import dosProtect from '../middleware/dosProtect';
 import { requireCapability } from '../middleware/permissions';
+import { audited } from '../audit/record';
 import { replaceRemoteKey } from './sshKeys';
 import {
   CustomerService,
@@ -34,6 +35,7 @@ import {
 } from './mappers';
 import {
   inScope,
+  isDeviceUuid,
   loadDeviceByIdInScope,
   loadDeviceInScope,
   POSITIVE_INT_RE,
@@ -222,6 +224,7 @@ router.post(
   '/api/customer/devices/:uuid/reboot',
   ...dosProtect,
   ...requireCapability('device.actions'),
+  audited('device.reboot'),
   wrap(async (req, res) => {
     const device = await loadDeviceInScope(req);
     await apiPost('/supervisor/v1/reboot', { uuid: device.uuid });
@@ -235,12 +238,14 @@ router.post(
   '/api/customer/devices/:uuid/services/:imageId/:command',
   ...dosProtect,
   ...requireCapability('device.actions'),
+  audited('service.command'),
   wrap(async (req, res) => {
     const command = String(req.params.command);
     const imageId = Number(req.params.imageId);
     if (!SERVICE_COMMANDS.has(command)) throw new HttpError(400, 'Unknown command');
     if (!Number.isInteger(imageId) || imageId <= 0) throw new HttpError(400, 'Invalid image id');
     const device = await loadDeviceInScope(req);
+    req.auditDetails = { command, imageId };
     const fleetId = refId(device.belongs_to__application);
     await apiPost(`/supervisor/v2/applications/${fleetId}/${command}-service`, { uuid: device.uuid, data: { imageId } });
     res.json({ success: true });
@@ -267,11 +272,11 @@ const tagText = (v: unknown, field: string, max: number, allowEmpty: boolean) =>
 async function loadTag(deviceId: number, tagIdParam: unknown) {
   const tagId = Number(tagIdParam);
   if (!Number.isInteger(tagId) || tagId <= 0) throw new HttpError(404, 'Tag not found');
-  const [tag] = await odataGet<{ id: number }>(
-    odataQuery('device_tag', { $select: 'id', $filter: `device eq ${deviceId} and id eq ${tagId}` }),
+  const [tag] = await odataGet<{ id: number; tag_key: string }>(
+    odataQuery('device_tag', { $select: 'id,tag_key', $filter: `device eq ${deviceId} and id eq ${tagId}` }),
   );
   if (!tag) throw new HttpError(404, 'Tag not found');
-  return tagId;
+  return { id: tagId, key: tag.tag_key };
 }
 
 router.get(
@@ -290,10 +295,12 @@ router.post(
   '/api/customer/devices/:uuid/tags',
   ...dosProtect,
   ...requireCapability('device.tags.write'),
+  audited('tag.create'),
   wrap(async (req, res) => {
     const key = tagText(req.body?.key, 'key', 100, false);
     const value = tagText(req.body?.value, 'value', 1000, true);
     const device = await loadDeviceInScope(req);
+    req.auditDetails = { key };
     await odataPost('device_tag', { device: device.id, tag_key: key, value });
     res.json({ success: true });
   }),
@@ -303,11 +310,13 @@ router.patch(
   '/api/customer/devices/:uuid/tags/:tagId',
   ...dosProtect,
   ...requireCapability('device.tags.write'),
+  audited('tag.update'),
   wrap(async (req, res) => {
     const value = tagText(req.body?.value, 'value', 1000, true);
     const device = await loadDeviceInScope(req);
-    const tagId = await loadTag(device.id, req.params.tagId);
-    await odataPatch(`device_tag(${tagId})`, { value });
+    const tag = await loadTag(device.id, req.params.tagId);
+    req.auditDetails = { key: tag.key };
+    await odataPatch(`device_tag(${tag.id})`, { value });
     res.json({ success: true });
   }),
 );
@@ -316,10 +325,12 @@ router.delete(
   '/api/customer/devices/:uuid/tags/:tagId',
   ...dosProtect,
   ...requireCapability('device.tags.delete'),
+  audited('tag.delete'),
   wrap(async (req, res) => {
     const device = await loadDeviceInScope(req);
-    const tagId = await loadTag(device.id, req.params.tagId);
-    await odataDelete(`device_tag(${tagId})`);
+    const tag = await loadTag(device.id, req.params.tagId);
+    req.auditDetails = { key: tag.key };
+    await odataDelete(`device_tag(${tag.id})`);
     res.json({ success: true });
   }),
 );
@@ -345,20 +356,23 @@ router.patch(
   '/api/customer/devices/:uuid/pinned-release',
   ...dosProtect,
   ...requireCapability('device.release.pin'),
+  audited('release.pin'),
   wrap(async (req, res) => {
     const releaseId = req.body?.releaseId;
     if (releaseId !== null && (typeof releaseId !== 'number' || !Number.isInteger(releaseId) || releaseId <= 0)) {
       throw new HttpError(400, 'releaseId must be a release id or null');
     }
     const device = await loadDeviceInScope(req);
+    req.auditDetails = releaseId === null ? { unpinned: true } : { releaseId };
     if (releaseId !== null) {
-      const [release] = await odataGet<{ id: number }>(
+      const [release] = await odataGet<{ id: number; raw_version?: string }>(
         odataQuery('release', {
-          $select: 'id',
+          $select: 'id,raw_version',
           $filter: `id eq ${releaseId} and belongs_to__application eq ${refId(device.belongs_to__application)} and status eq 'success'`,
         }),
       );
       if (!release) throw new HttpError(403, 'Release does not belong to the device fleet');
+      req.auditDetails = { releaseId, version: release.raw_version ?? null };
     }
     await odataPatch(`device(${device.id})`, { [PINNED_RELEASE_FIELD]: releaseId });
     res.json({ success: true });
@@ -384,16 +398,20 @@ router.get(
   }),
 );
 
-// Public keys can't be edited through the API, so the old one is replaced.
+// Public keys can't be edited through the API, so the old one is replaced. The target device must be in scope.
 router.post(
   '/api/customer/ssh-key',
   ...dosProtect,
   ...requireCapability('device.terminal'),
+  audited('terminal.open'),
   wrap(async (req, res) => {
     const publicKey = req.body?.publicKey;
     if (typeof publicKey !== 'string' || publicKey.length > 4096 || !SSH_KEY_RE.test(publicKey)) {
       throw new HttpError(400, 'Invalid SSH public key');
     }
+    const deviceUuid = req.body?.deviceUuid;
+    if (!isDeviceUuid(deviceUuid)) throw new HttpError(400, 'deviceUuid required');
+    await loadDeviceInScope(req, deviceUuid);
     await replaceRemoteKey(req.headers.authorization!, req.user!.id, publicKey);
     res.json({ success: true });
   }),
