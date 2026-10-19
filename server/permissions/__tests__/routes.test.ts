@@ -7,7 +7,7 @@ import { openStore, setStore, PermissionStore } from '../store';
 import permissionRoutes from '../routes';
 
 const SECRET = 'test-secret';
-const sign = (id: number) => new SignJWT({ id }).setProtectedHeader({ alg: 'HS256' }).sign(new TextEncoder().encode(SECRET));
+const sign = (id: number) => new SignJWT({ id }).setProtectedHeader({ alg: 'HS256' }).setExpirationTime('1h').sign(new TextEncoder().encode(SECRET));
 const app = express();
 app.use(express.json());
 app.use('/', permissionRoutes);

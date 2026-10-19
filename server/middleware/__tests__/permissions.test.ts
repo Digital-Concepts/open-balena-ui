@@ -12,7 +12,7 @@ import { requireCapability } from '../permissions';
 
 const SECRET = 'test-secret';
 const sign = (claims: Record<string, unknown>) =>
-  new SignJWT(claims).setProtectedHeader({ alg: 'HS256' }).sign(new TextEncoder().encode(SECRET));
+  new SignJWT(claims).setProtectedHeader({ alg: 'HS256' }).setExpirationTime('1h').sign(new TextEncoder().encode(SECRET));
 
 const { DatabaseSync } = process.getBuiltinModule('node:sqlite') as typeof import('node:sqlite');
 

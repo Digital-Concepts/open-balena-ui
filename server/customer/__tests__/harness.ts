@@ -104,6 +104,6 @@ export function setup(
     if (path.startsWith('/device/v2/')) return { ok: true, status: 200, json: async () => [{ message: 'hello', timestamp: 1, serviceId: 2, isStderr: false, isSystem: false, secret: 'x' }] };
     return json([]);
   }) as any;
-  const token = () => new SignJWT({ id: 5 }).setProtectedHeader({ alg: 'HS256' }).sign(new TextEncoder().encode(SECRET));
+  const token = () => new SignJWT({ id: 5 }).setProtectedHeader({ alg: 'HS256' }).setExpirationTime('1h').sign(new TextEncoder().encode(SECRET));
   return { calls, token };
 }

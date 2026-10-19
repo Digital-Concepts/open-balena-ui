@@ -13,7 +13,7 @@ const get = async (caps: string[], path: string) => {
 describe('customer lookup', () => {
   it('needs device.read', async () => {
     setup(['device.read']);
-    const noSet = await new SignJWT({ id: 6 }).setProtectedHeader({ alg: 'HS256' }).sign(new TextEncoder().encode(SECRET));
+    const noSet = await new SignJWT({ id: 6 }).setProtectedHeader({ alg: 'HS256' }).setExpirationTime('1h').sign(new TextEncoder().encode(SECRET));
     expect((await request(app).get('/api/customer/lookup/application?ids=10').set('Authorization', `Bearer ${noSet}`)).status).toBe(403);
   });
 
