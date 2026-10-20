@@ -191,21 +191,54 @@ export function killChild(child?: ChildProcess): void {
 
 export const cleanupTunnel = killChild;
 
+const TUNNEL_PORT_MIN = 20000;
+const TUNNEL_PORT_MAX = 29999;
+// Local ports held by this process's tunnels until they exit; portfinder alone can hand the same
+// port to two tunnels that start together, and the loser would then talk to the other device.
+const reservedTunnelPorts = new Set<number>();
+
+export function resetTunnelPorts(): void {
+  reservedTunnelPorts.clear();
+}
+
+async function reserveTunnelPort(): Promise<number> {
+  let from = TUNNEL_PORT_MIN;
+  while (from <= TUNNEL_PORT_MAX) {
+    const port = await portfinder.getPortPromise({ port: from, stopPort: TUNNEL_PORT_MAX });
+    if (!reservedTunnelPorts.has(port)) {
+      reservedTunnelPorts.add(port);
+      return port;
+    }
+    from = Math.max(from, port) + 1;
+  }
+  throw new Error('No free tunnel port');
+}
+
 /** Forwards device port `remotePort` to a free local port. */
 export async function openTunnel(uuid: string, remotePort: number, dir: string): Promise<TunnelHandle> {
   assertUuid(uuid);
   const remote = assertPort(remotePort);
-  const tunnelPort = await portfinder.getPortPromise({ port: 20000, stopPort: 29999 });
+  const tunnelPort = await reserveTunnelPort();
   const tunnelProcess = spawn(
     BALENA_BIN,
     ['device', 'tunnel', uuid, '-p', `${remote}:127.0.0.1:${tunnelPort}`, '--unsupported'],
     { env: balenaEnv(dir) },
   );
+  const release = () => reservedTunnelPorts.delete(tunnelPort);
+  tunnelProcess.once('exit', release);
   tunnelProcess.stdout?.on('data', (data) => console.log(`Tunnel stdout: ${data}`));
   tunnelProcess.stderr?.on('data', (data) => console.error(`Tunnel stderr: ${data}`));
-  tunnelProcess.on('error', (error) => console.error('Tunnel error:', error.message));
-  const open = await waitPort({ host: '127.0.0.1', port: tunnelPort, timeout: 20000 }).catch(() => false);
-  if (!open) {
+  tunnelProcess.on('error', (error) => {
+    console.error('Tunnel error:', error.message);
+    release();
+  });
+  // A tunnel that exits early (e.g. bind failure) must not be taken as open by whatever else listens.
+  const exited = new Promise<false>((resolve) => tunnelProcess.once('exit', () => resolve(false)));
+  const open = await Promise.race([
+    waitPort({ host: '127.0.0.1', port: tunnelPort, timeout: 20000 }).catch(() => false),
+    exited,
+  ]);
+  if (!open || tunnelProcess.exitCode !== null) {
     cleanupTunnel(tunnelProcess);
     throw new Error('Failed to open tunnel');
   }

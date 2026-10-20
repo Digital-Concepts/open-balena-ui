@@ -6,7 +6,7 @@ import path from 'node:path';
 
 const cp = vi.hoisted(() => ({ execFile: vi.fn(), spawn: vi.fn(), exec: vi.fn() }));
 vi.mock('node:child_process', () => ({ ...cp, default: cp }));
-vi.mock('portfinder', () => ({ default: { getPortPromise: vi.fn(async () => 20123) } }));
+vi.mock('portfinder', () => ({ default: { getPortPromise: vi.fn(async (o: { port: number }) => Math.max(o.port, 20123)) } }));
 vi.mock('wait-port', () => ({ default: vi.fn(async () => true) }));
 
 import waitPort from 'wait-port';
@@ -18,6 +18,7 @@ import {
   createSession,
   balenaLogin,
   openTunnel,
+  resetTunnelPorts,
   cleanupTunnel,
   killChild,
   sweepTempDirs,
@@ -74,6 +75,7 @@ function assertNoShell(call: any[]) {
 }
 
 beforeEach(() => {
+  resetTunnelPorts();
   vi.spyOn(console, 'error').mockImplementation(() => {});
   cp.execFile.mockReset();
   cp.spawn.mockReset();
@@ -217,6 +219,34 @@ describe('openTunnel', () => {
   it.each(HOSTILE)('refuses hostile uuid %j before spawning', async (bad) => {
     await expect(openTunnel(bad, 8099, '/tmp/sessions/x')).rejects.toBeInstanceOf(HttpError);
     expect(cp.spawn).not.toHaveBeenCalled();
+  });
+
+  it('never hands the same local port to two live tunnels', async () => {
+    cp.spawn.mockImplementation(() => fakeChild());
+    const [a, b] = await Promise.all([openTunnel(UUID, 8099, '/tmp/sessions/x'), openTunnel('b'.repeat(32), 8099, '/tmp/sessions/y')]);
+    expect(a.tunnelPort).not.toBe(b.tunnelPort);
+  });
+
+  it('frees the port once the tunnel exits', async () => {
+    const first = fakeChild();
+    cp.spawn.mockReturnValueOnce(first).mockImplementation(() => fakeChild());
+    const a = await openTunnel(UUID, 8099, '/tmp/sessions/x');
+    first.emit('exit', 0);
+    const b = await openTunnel(UUID, 8099, '/tmp/sessions/x');
+    expect(b.tunnelPort).toBe(a.tunnelPort);
+  });
+
+  it('fails when the tunnel exits before its port opens, even if something else listens', async () => {
+    const child = fakeChild();
+    cp.spawn.mockReturnValue(child);
+    let resolvePort: (v: boolean) => void = () => {};
+    (waitPort as any).mockReturnValue(new Promise((r) => (resolvePort = r)));
+    const pending = openTunnel(UUID, 8099, '/tmp/sessions/x');
+    await new Promise((r) => setTimeout(r, 0));
+    child.exitCode = 1;
+    child.emit('exit', 1);
+    resolvePort(true);
+    await expect(pending).rejects.toThrow('Failed to open tunnel');
   });
 
   it('kills the tunnel when the port never opens', async () => {

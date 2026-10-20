@@ -11,7 +11,7 @@ import request from 'supertest';
 
 const cp = vi.hoisted(() => ({ execFile: vi.fn(), spawn: vi.fn(), exec: vi.fn() }));
 vi.mock('node:child_process', () => ({ ...cp, default: cp }));
-vi.mock('portfinder', () => ({ default: { getPortPromise: vi.fn(async () => 20123) } }));
+vi.mock('portfinder', () => ({ default: { getPortPromise: vi.fn(async (o: { port: number }) => Math.max(o.port, 20123)) } }));
 vi.mock('wait-port', () => ({ default: vi.fn(async () => true) }));
 vi.mock('../../lib/deviceShell', async (importOriginal) => {
   const actual: any = await importOriginal();
@@ -25,6 +25,7 @@ vi.mock('../../middleware', () => ({
 }));
 
 import deviceAdminRoutes from '../deviceAdmin';
+import { resetTunnelPorts } from '../../lib/deviceShell';
 import { SESSION_ROOT, uniqueFileNames } from '../../lib/deviceShell';
 import { HttpError } from '../../lib/httpError';
 
@@ -70,6 +71,7 @@ let before: string[];
 let uploadsBefore: string[];
 
 beforeEach(() => {
+  resetTunnelPorts();
   vi.spyOn(console, 'log').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
   cp.execFile.mockReset();
