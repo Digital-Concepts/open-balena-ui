@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { Datagrid, FunctionField, Link, List, Pagination, SelectInput, TextField, useCreatePath, useGetList, useListContext } from 'react-admin';
+import { Datagrid, FunctionField, Link, List, Pagination, SelectInput, TextField, downloadCSV, useCreatePath, useGetList, useListContext } from 'react-admin';
+import jsonExport from 'jsonexport/dist';
 import { Tooltip } from '@mui/material';
 import { adminFetch } from '../lib/adminApi';
 import { auditActionLabel } from '../lib/auditActions';
@@ -24,6 +25,37 @@ const formatTime = (ts: string): string => {
   const d = new Date(ts);
   return Number.isNaN(d.getTime()) ? String(ts) : d.toLocaleString();
 };
+
+// Customer-controlled text (tag keys, file names) must not start a spreadsheet formula.
+export const csvSafe = (v: unknown): unknown =>
+  typeof v === 'string' && /^[=+\-@\t\r]/.test(v) ? `'${v}` : v;
+
+export const toCsvRows = (rows: AuditRow[]) =>
+  rows.map((r) =>
+    Object.fromEntries(
+      Object.entries({
+        time: r.ts,
+        user: r.username,
+        org: r.orgName,
+        fleet: r.fleetName,
+        device: r.deviceName,
+        deviceUuid: r.deviceUuid,
+        action: r.action,
+        details: formatDetails(r.details),
+        result: r.result,
+        error: r.error,
+      }).map(([k, v]) => [k, csvSafe(v)]),
+    ),
+  );
+
+const auditExporter = (rows: AuditRow[]) =>
+  jsonExport(toCsvRows(rows), (err: unknown, csv: string) => {
+    if (err) {
+      console.error('Audit export failed', err);
+      return;
+    }
+    downloadCSV(csv, `audit-${new Date().toISOString().split('T')[0]}`);
+  });
 
 export const formatDetails = (details: Record<string, unknown> | null): string =>
   details
@@ -116,6 +148,7 @@ export const AuditList: React.FC = () => {
       filters={filters}
       perPage={25}
       sort={{ field: 'ts', order: 'DESC' }}
+      exporter={auditExporter}
       pagination={<Pagination rowsPerPageOptions={[25, 50, 100]} />}
     >
       <AuditGrid />

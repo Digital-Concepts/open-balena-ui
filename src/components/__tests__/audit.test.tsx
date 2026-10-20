@@ -91,3 +91,22 @@ describe('AuditList', () => {
     err.mockRestore();
   });
 });
+
+describe('audit CSV export', () => {
+  it('neutralises formula-leading text and flattens details', async () => {
+    const { csvSafe, toCsvRows } = await import('../audit');
+    expect(csvSafe('=HYPERLINK("x")')).toBe(`'=HYPERLINK("x")`);
+    expect(csvSafe('+1')).toBe("'+1");
+    expect(csvSafe('-1')).toBe("'-1");
+    expect(csvSafe('@a')).toBe("'@a");
+    expect(csvSafe('site')).toBe('site');
+    expect(csvSafe(5)).toBe(5);
+    const [row] = toCsvRows([
+      { id: 1, ts: 't', userId: 1, username: 'test1', orgId: 1, orgName: '@org', fleetId: 2, fleetName: 'f', deviceUuid: 'a', deviceName: '=d', action: 'tag.create', details: { key: '=cmd|x' }, result: 'ok', error: null } as any,
+    ]);
+    expect(row.device).toBe("'=d");
+    expect(row.org).toBe("'@org");
+    expect(row.details).toBe('key: =cmd|x');
+    expect(row.user).toBe('test1');
+  });
+});
