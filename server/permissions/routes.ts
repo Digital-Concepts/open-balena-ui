@@ -29,8 +29,8 @@ const withUserLock = async <T>(userId: number, fn: () => Promise<T>): Promise<T>
   }
 };
 
-// Single place to change which openBalena role customer users get.
-export const CUSTOMER_OPENBALENA_ROLE = 'default-user';
+// openBalena role for customer users (created on the instance): login, own SSH key, read + tunnel to devices of their orgs.
+export const CUSTOMER_OPENBALENA_ROLE = 'customer-user';
 const MEMBERSHIP = 'organization membership';
 const ORG_FIELD = 'is member of-organization';
 

@@ -51,7 +51,7 @@ beforeEach(() => {
     if (db.failOn && u.startsWith(db.failOn) && method !== 'GET') return json({}, 500);
     if (u.startsWith(`${MEMB}?user=eq.7`) && method === 'GET')
       return json(db.memberships.map((m) => ({ id: m.id, 'is member of-organization': m.org })));
-    if (u.startsWith(`${ROLE}?name=eq.default-user`)) return json([{ id: 3 }]);
+    if (u.startsWith(`${ROLE}?name=eq.customer-user`)) return json([{ id: 3 }]);
     if (u.startsWith(`${ROLES}?user=eq.7`) && method === 'GET') return json(db.roles.map((r) => ({ id: r.id, role: r.role })));
     if (u.startsWith(`${PERMS}?user=eq.7`) && method === 'GET') return json(db.perms);
     if (u.includes('user-has-public')) return json({}, 204);
@@ -180,7 +180,7 @@ describe('account routes', () => {
     const token = `Bearer ${await sign(1)}`;
     expect(pg().every((c) => c.auth === token)).toBe(true);
     expect(pg().map((c) => `${c.method} ${c.url.replace(PG, '')}`)).toEqual([
-      'GET /role?name=eq.default-user&select=id',
+      'GET /role?name=eq.customer-user&select=id',
       'GET /user-has-role?user=eq.7&select=id,role',
       'POST /user-has-role',
       'DELETE /user-has-role?id=eq.200',
