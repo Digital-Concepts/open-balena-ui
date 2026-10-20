@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Datagrid, FunctionField, Link, List, Pagination, SelectInput, TextField, downloadCSV, useCreatePath, useGetList, useListContext } from 'react-admin';
 import jsonExport from 'jsonexport/dist';
-import { Tooltip } from '@mui/material';
+import { Box, Tooltip } from '@mui/material';
 import { adminFetch } from '../lib/adminApi';
 import { auditActionLabel } from '../lib/auditActions';
 
@@ -103,10 +103,10 @@ const AuditGrid: React.FC = () => {
         sortable={false}
         render={(r) =>
           r.result === 'ok' ? (
-            <span aria-label='ok'>✔</span>
+            <Box component='span' aria-label='ok' sx={{ color: 'success.main', fontWeight: 700 }}>✔</Box>
           ) : (
             <Tooltip title={r.error ?? 'failed'}>
-              <span aria-label='failed'>✖</span>
+              <Box component='span' aria-label='failed' sx={{ color: 'error.main', fontWeight: 700, cursor: 'help' }}>✖</Box>
             </Tooltip>
           )
         }
